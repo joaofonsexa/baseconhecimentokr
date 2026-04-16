@@ -1,0 +1,586 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BASE CONHECIMENTO KR</title>
+  <meta
+    name="description"
+    content="Base de conhecimento para operadores de call center com busca instantanea, scripts, procedimentos, FAQ, informativos e painel administrativo."
+  >
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: transparent;
+      color-scheme: light dark;
+    }
+  </style>
+  <script>
+    try {
+      const savedSession = JSON.parse(sessionStorage.getItem("pulse-kb-session-v1") || "null");
+      const theme = savedSession?.theme === "light" ? "light" : savedSession?.theme === "dark" ? "dark" : "dark";
+      document.documentElement.style.colorScheme = theme;
+    } catch (error) {}
+  </script>
+</head>
+<body data-theme="dark" class="booting">
+  <script>
+    try {
+      const savedSession = JSON.parse(sessionStorage.getItem("pulse-kb-session-v1") || "null");
+      const theme = savedSession?.theme === "light" ? "light" : savedSession?.theme === "dark" ? "dark" : "dark";
+      document.body.setAttribute("data-theme", theme);
+      document.documentElement.style.colorScheme = theme;
+    } catch (error) {}
+  </script>
+  <div id="boot-loader" class="boot-loader" aria-live="polite" aria-busy="true">
+    <div class="boot-loader-card">
+      <span class="boot-spinner" aria-hidden="true"></span>
+      <strong>Carregando...</strong>
+      <p>Preparando a base de conhecimento.</p>
+    </div>
+  </div>
+
+  <section id="login-screen" class="login-screen">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="brand-mark brand-logo-shell">
+          <img src="logos_KR-02.png" alt="KR Consulting &amp; Services">
+        </div>
+        <div>
+          <h1>BASE CONHECIMENTO KR</h1>
+        </div>
+      </div>
+
+      <form id="login-form" class="login-form">
+        <label>
+          <span>Usuario</span>
+          <input id="login-username" type="text" placeholder="Digite seu usuario" required>
+        </label>
+
+        <label>
+          <span>Senha</span>
+          <input id="login-password" type="password" placeholder="Digite sua senha" required>
+        </label>
+
+        <p id="login-error" class="login-error hidden">Credenciais invalidas. Verifique perfil e senha.</p>
+
+        <button class="primary-button" type="submit">Entrar</button>
+      </form>
+    </div>
+  </section>
+
+  <div id="app-shell" class="app-shell hidden">
+    <aside class="sidebar">
+      <div class="brand-block">
+        <div class="brand-mark brand-logo-shell">
+          <img src="logos_KR-02.png" alt="KR Consulting &amp; Services">
+        </div>
+        <div>
+          <h1>BASE CONHECIMENTO KR</h1>
+        </div>
+      </div>
+
+        <nav class="sidebar-nav">
+          <button class="nav-link" data-section="explorer">Explorar Conteudos</button>
+          <button class="nav-link" data-section="favorites">Favoritos</button>
+          <button class="nav-link" data-section="admin">Area Administrativa</button>
+          <button class="nav-link" data-section="operacional">Painel Operacional</button>
+        </nav>
+
+    </aside>
+
+    <main class="main-content">
+      <header class="hero-header">
+        <div class="hero-search hero-search-full">
+          <div class="top-utility-bar">
+            <div class="search-top-label">
+              <span class="eyebrow">Filtros</span>
+            </div>
+            <div class="top-utility-actions">
+              <div class="notification-menu">
+                <button id="notification-trigger" class="icon-button notification-button" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Notificacoes">
+                  <span aria-hidden="true">&#128276;</span>
+                  <span id="notification-badge" class="notification-badge hidden">0</span>
+                </button>
+
+                <div id="notification-dropdown" class="profile-dropdown notification-dropdown hidden" role="menu">
+                  <div class="profile-dropdown-head">
+                    <strong>Comunicados</strong>
+                    <span id="notification-summary">Nenhum comunicado novo</span>
+                  </div>
+                  <div id="notification-list" class="notification-list"></div>
+                </div>
+              </div>
+
+              <button id="toggle-history" class="icon-button icon-button-wide" type="button" aria-label="Historico de buscas">
+                <span aria-hidden="true">&#8635;</span>
+                <span>Historico</span>
+              </button>
+
+              <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Alternar tema">
+                <span class="theme-icon theme-sun" aria-hidden="true">&#9728;</span>
+                <span class="theme-icon theme-moon" aria-hidden="true">&#9790;</span>
+              </button>
+
+              <div class="profile-menu">
+                <button id="profile-trigger" class="profile-pill" type="button" aria-haspopup="menu" aria-expanded="false">
+                  <span class="profile-avatar" id="profile-avatar">AK</span>
+                  <span class="profile-info">
+                    <strong id="session-name">Usuario</strong>
+                    <span id="session-role" class="session-role">Operador</span>
+                  </span>
+                </button>
+
+                <div id="profile-dropdown" class="profile-dropdown hidden" role="menu">
+                  <div class="profile-dropdown-head">
+                    <strong id="session-name-menu">Usuario</strong>
+                    <span id="session-role-menu">Operador</span>
+                  </div>
+                  <button id="reset-password-button" class="profile-dropdown-item" type="button" role="menuitem">Reset de senha</button>
+                  <button id="logout-button" class="profile-dropdown-item danger" type="button" role="menuitem">Logout</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <label class="search-box" for="global-search">
+            <span class="search-icon" aria-hidden="true"></span>
+            <input
+              id="global-search"
+              type="search"
+              placeholder="Busque por titulo, palavra-chave, conteudo ou tag..."
+              autocomplete="off"
+            >
+          </label>
+          <section id="global-filter-panel" class="filter-panel filter-panel-inline">
+            <div class="filter-head">
+              <button id="clear-filters" class="text-button" type="button">Limpar</button>
+            </div>
+
+            <div class="filter-group">
+              <span class="filter-label">Categoria</span>
+              <div id="category-filters" class="chip-grid"></div>
+            </div>
+
+            <div class="filter-group">
+              <span class="filter-label">Tipo</span>
+              <div id="type-filters" class="chip-grid"></div>
+            </div>
+
+            <div class="filter-group">
+              <span class="filter-label">Tags</span>
+              <div id="tag-filters" class="chip-grid"></div>
+            </div>
+          </section>
+        </div>
+      </header>
+
+      <section id="history-panel" class="history-panel hidden"></section>
+
+      <section id="dashboard" class="content-section active">
+        <div class="dashboard-grid">
+          <article class="spotlight-card spotlight-card-main">
+            <div class="spotlight-copy">
+              <p class="eyebrow">Busca Central</p>
+              <h3>Ponto unico de consulta para operadores</h3>
+              <p>
+                Digite durante o atendimento e veja resultados filtrados instantaneamente com titulo, categoria,
+                tags, palavras-chave e trechos destacados.
+              </p>
+            </div>
+            <div class="spotlight-stats" id="hero-stats"></div>
+          </article>
+
+          <article class="spotlight-card spotlight-card-side">
+            <p class="eyebrow">Atualizacao operacional</p>
+            <h3>Itens criticos sempre em evidÃªncia</h3>
+            <p>Alertas, mudancas de politica e comunicados recentes ganham destaque visual para consulta rapida.</p>
+          </article>
+        </div>
+
+        <section class="category-section">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Categorias</p>
+              <h3>Navegacao por assunto</h3>
+            </div>
+          </div>
+          <div id="category-cards" class="category-grid"></div>
+        </section>
+
+        <div class="info-grid">
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Mais acessados</p>
+                <h3>Top consultas da operacao</h3>
+              </div>
+            </div>
+            <div id="most-accessed" class="list-stack"></div>
+          </section>
+
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Atualizacoes recentes</p>
+                <h3>Novidades da base</h3>
+              </div>
+            </div>
+            <div id="recent-updates" class="list-stack"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="explorer" class="content-section">
+        <section class="panel results-panel">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Resultados</p>
+              <h3>Busca e filtros em tempo real</h3>
+            </div>
+          </div>
+          <div id="active-filters" class="active-filters"></div>
+          <div id="results-list" class="results-list"></div>
+        </section>
+      </section>
+
+      <section id="favorites" class="content-section">
+        <div class="info-grid single">
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Favoritos</p>
+                <h3>Conteudos salvos para atendimento rapido</h3>
+              </div>
+            </div>
+            <div id="favorites-list" class="results-list compact"></div>
+          </section>
+        </div>
+      </section>
+
+        <section id="admin" class="content-section">
+          <div class="admin-grid">
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Gestao de conteudo</p>
+                <h3>Avisos e procedimentos</h3>
+              </div>
+            </div>
+            <div class="admin-action-card">
+              <p>
+                Cadastre novos avisos, scripts e procedimentos em uma tela dedicada.
+                A visualizacao e a edicao tambem acontecem em uma tela propria para deixar o fluxo mais organizado.
+              </p>
+              <div class="form-actions">
+                <button id="open-content-create" class="primary-button" type="button">Novo aviso / procedimento</button>
+              </div>
+              <div id="content-create-menu" class="create-menu hidden">
+                <button type="button" class="create-menu-option" data-create-kind="aviso">Aviso</button>
+                <button type="button" class="create-menu-option" data-create-kind="documento">Documento Word / PDF</button>
+                <button type="button" class="create-menu-option" data-create-kind="procedimento">Procedimento</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Base cadastrada</p>
+                <h3>Itens disponiveis</h3>
+              </div>
+            </div>
+            <div id="admin-list" class="admin-list"></div>
+          </section>
+        </div>
+
+        <div class="admin-grid">
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Niveis de servico</p>
+                <h3>Criar acesso</h3>
+              </div>
+            </div>
+
+            <form id="user-form" class="admin-form">
+              <input id="user-id" type="hidden">
+
+              <label>
+                <span>Nome completo</span>
+                <input id="user-name" type="text" required placeholder="Ex.: Maria Silva">
+              </label>
+
+              <div class="form-grid">
+                <label>
+                  <span>Login</span>
+                  <input id="user-username" type="text" required placeholder="Ex.: maria.silva">
+                </label>
+
+                <label>
+                  <span>Nivel de acesso</span>
+                  <select id="user-role" required>
+                    <option value="gestor">Gestor - acesso total</option>
+                    <option value="operador">Operador - visualizar base</option>
+                  </select>
+                </label>
+              </div>
+
+                <label>
+                  <span>Senha</span>
+                  <input id="user-password" type="text" readonly value="Trocar@01">
+                  <small class="field-help">A senha padrao sera gerada como Trocar@01 e o usuario devera alterar no primeiro acesso.</small>
+                </label>
+
+              <div class="form-actions">
+                <button class="primary-button" type="submit">Salvar acesso</button>
+                <button id="cancel-user-edit" class="ghost-button" type="button">Cancelar edicao</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Usuarios cadastrados</p>
+                <h3>Acessos liberados pelo gestor</h3>
+              </div>
+            </div>
+            <div id="users-list" class="admin-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="operacional" class="content-section">
+          <div class="admin-grid">
+            <section class="panel">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Operação</p>
+                  <h3>Painel Operacional</h3>
+                </div>
+              </div>
+
+                <div class="operational-toolbar">
+                  <label class="search-box operational-search" for="operational-search">
+                    <span class="search-icon" aria-hidden="true"></span>
+                    <input
+                      id="operational-search"
+                      type="search"
+                      placeholder="Pesquisar usuário..."
+                      autocomplete="off"
+                    >
+                  </label>
+                  <div class="presence-summary">
+                    <button id="operational-filter-online" class="presence-pill online" type="button">Online</button>
+                    <button id="operational-filter-offline" class="presence-pill offline" type="button">Offline</button>
+                  </div>
+                </div>
+
+              <div id="operational-list" class="admin-list"></div>
+            </section>
+          </div>
+      </section>
+
+      <section id="content-editor-screen" class="content-section">
+        <div class="info-grid single">
+          <section class="panel editor-screen-panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Gestao de conteudo</p>
+                <h3 id="content-editor-title">Novo conteudo</h3>
+              </div>
+              <button id="back-from-content-editor" class="ghost-button" type="button">Voltar</button>
+            </div>
+
+            <form id="content-form" class="admin-form">
+              <input id="content-id" type="hidden">
+
+              <label>
+                <span>Titulo</span>
+                <input id="content-title" type="text" required placeholder="Ex.: Script de contestacao de cartao">
+              </label>
+
+              <div class="form-grid">
+                <label>
+                  <span>Categoria</span>
+                  <select id="content-category" required></select>
+                </label>
+
+                <label>
+                  <span>Tipo</span>
+                  <select id="content-type" required></select>
+                </label>
+              </div>
+
+              <label>
+                <span>Resumo curto</span>
+                <input id="content-summary" type="text" required placeholder="Resumo que aparece nas listagens">
+              </label>
+
+              <label>
+                <span>Tags</span>
+                <input id="content-tags" type="text" placeholder="BMG, Cartao, Emprestimo">
+              </label>
+
+              <label>
+                <span>Palavras-chave</span>
+                <input id="content-keywords" type="text" placeholder="senha, desbloqueio, confirmacao de dados">
+              </label>
+
+              <label>
+                <span>Conteudo formatado</span>
+                <textarea id="content-body" rows="10" placeholder="Use paragrafos separados por linha em branco. Para listas, comece com -"></textarea>
+                <small class="field-help">Se preferir, você pode deixar esse campo em branco e subir apenas o documento anexado.</small>
+              </label>
+
+              <label>
+                <span>Documento anexado</span>
+                <input id="content-attachment" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                <small class="field-help">Aceita PDF, Word e Excel. Você pode selecionar mais de um arquivo e tudo será salvo junto do post.</small>
+                <small id="content-attachment-info" class="field-help">Nenhum arquivo selecionado.</small>
+              </label>
+
+              <div class="form-grid check-grid">
+                <label class="checkbox-row">
+                  <input id="content-featured" type="checkbox">
+                  <span>Marcar como destaque</span>
+                </label>
+
+                <label class="checkbox-row">
+                  <input id="content-script" type="checkbox">
+                  <span>Exibir botao de copiar</span>
+                </label>
+              </div>
+
+              <label class="checkbox-row">
+                <input id="content-urgent" type="checkbox">
+                <span>Urgente</span>
+              </label>
+
+              <div class="form-actions">
+                <button class="primary-button" type="submit">Salvar conteudo</button>
+                <button id="cancel-edit" class="ghost-button" type="button">Cancelar</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </section>
+
+      <section id="content-view-screen" class="content-section">
+        <div class="info-grid single">
+          <section class="panel editor-screen-panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Visualizacao</p>
+                <h3 id="content-view-title">Conteudo</h3>
+              </div>
+              <div class="form-actions">
+                <button id="back-from-content-view" class="ghost-button" type="button">Voltar</button>
+                <button id="content-view-edit" class="primary-button" type="button">Editar</button>
+              </div>
+            </div>
+            <div id="content-view-body" class="content-view-body"></div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <template id="result-template">
+    <article class="result-card">
+      <div class="result-top">
+        <div>
+          <div class="result-badges"></div>
+          <h4></h4>
+        </div>
+        <div class="result-actions">
+          <button class="ghost-button audit-toggle hidden" type="button" aria-label="Ver audiência">👁</button>
+          <button class="favorite-toggle" type="button" aria-label="Favoritar"></button>
+        </div>
+      </div>
+      <p class="result-summary-text"></p>
+      <p class="result-snippet"></p>
+      <div class="result-bottom">
+        <div class="tag-row"></div>
+        <button class="text-button open-detail" type="button">Abrir conteudo</button>
+      </div>
+    </article>
+  </template>
+
+  <div id="urgent-modal" class="urgent-modal hidden" role="alertdialog" aria-modal="true">
+    <div class="urgent-modal-card">
+      <p class="eyebrow">Alerta urgente</p>
+      <h3 id="urgent-modal-title">Novo comunicado urgente</h3>
+      <p id="urgent-modal-text">Um novo comunicado urgente foi publicado.</p>
+      <div class="form-actions">
+        <button id="urgent-modal-open" class="primary-button" type="button">Marcar como visto</button>
+        <button id="urgent-modal-close" class="ghost-button" type="button">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="content-audit-modal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <article class="modal-card admin-modal-card">
+      <header class="modal-head">
+        <div>
+          <p class="eyebrow">Audiência da publicação</p>
+          <h3 id="content-audit-title">Quem visualizou</h3>
+        </div>
+        <button id="content-audit-close" class="ghost-button modal-close-btn" type="button" aria-label="Fechar">X</button>
+      </header>
+      <div class="audit-stats">
+        <button id="content-audit-seen-count" class="presence-pill online audit-tab-button" type="button">0 visualizaram</button>
+        <button id="content-audit-missing-count" class="presence-pill offline audit-tab-button" type="button">0 não visualizaram</button>
+      </div>
+      <div class="audit-tabs">
+        <button id="content-audit-tab-seen" class="audit-tab active" type="button">Visualizados</button>
+        <button id="content-audit-tab-missing" class="audit-tab" type="button">Não visualizados</button>
+      </div>
+      <div class="audit-panel">
+        <section class="audit-column">
+          <p id="content-audit-active-label" class="eyebrow">Já visualizaram</p>
+          <div id="content-audit-active-list" class="audit-list"></div>
+        </section>
+      </div>
+    </article>
+  </div>
+
+  <div id="operational-user-modal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <article class="modal-card admin-modal-card">
+      <header class="modal-head">
+        <div>
+          <p class="eyebrow">Painel Operacional</p>
+          <h3 id="operational-user-name">Usuário</h3>
+        </div>
+        <button id="operational-user-close" class="ghost-button modal-close-btn" type="button" aria-label="Fechar">X</button>
+      </header>
+      <div class="operational-detail">
+        <div class="presence-summary">
+          <span id="operational-user-status" class="presence-pill online">Online</span>
+          <span id="operational-user-time" class="presence-pill offline">0m</span>
+        </div>
+        <div class="audit-columns single">
+          <section class="audit-column">
+            <p class="eyebrow">Último login</p>
+            <div id="operational-user-last-login" class="audit-card"></div>
+          </section>
+        </div>
+        <div class="form-actions">
+          <button id="operational-user-force-logout" class="ghost-button danger" type="button">Deslogar usuário</button>
+        </div>
+      </div>
+    </article>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
+
