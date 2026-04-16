@@ -104,8 +104,8 @@
         <nav class="sidebar-nav">
           <button class="nav-link" data-section="explorer">Explorar Conteudos</button>
           <button class="nav-link" data-section="favorites">Favoritos</button>
-          <button class="nav-link" data-section="meus-resultados">Meus Resultados</button>
-          <button class="nav-link" data-section="minha-operacao">Minha Operacao</button>
+          <button class="nav-link" data-section="meus-resultados">Meus resultados</button>
+          <button class="nav-link" data-section="minha-operacao">Minha equipe</button>
           <button class="nav-link" data-section="admin">Area Administrativa</button>
           <button class="nav-link" data-section="operacional">Painel Operacional</button>
         </nav>
@@ -287,7 +287,7 @@
             <div class="section-head">
               <div>
                 <p class="eyebrow">Performance individual</p>
-                <h3>Meus Resultados</h3>
+                <h3>Meus resultados</h3>
               </div>
             </div>
             <div id="my-results-cards" class="spotlight-stats my-results-cards"></div>
@@ -302,10 +302,32 @@
             <div class="section-head">
               <div>
                 <p class="eyebrow">Gestao de performance</p>
-                <h3>Minha Operacao</h3>
+                <h3>Minha equipe</h3>
               </div>
             </div>
             <div id="operation-overview-cards" class="spotlight-stats my-results-cards"></div>
+          </section>
+        </div>
+
+        <div class="info-grid">
+          <section class="panel operation-chart-panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Ranking</p>
+                <h3>Produção (maior para menor)</h3>
+              </div>
+            </div>
+            <div id="operation-production-chart" class="operation-chart"></div>
+          </section>
+
+          <section class="panel operation-chart-panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Ranking</p>
+                <h3>Efetividade (maior para menor)</h3>
+              </div>
+            </div>
+            <div id="operation-effectiveness-chart" class="operation-chart"></div>
           </section>
         </div>
 
@@ -429,15 +451,15 @@
                 <select id="operator-results-user" required></select>
               </label>
 
+              <label>
+                <span>Data de referencia (D-1)</span>
+                <input id="operator-results-date" type="date" required>
+              </label>
+
               <div class="form-grid">
                 <label>
                   <span>Producao Total</span>
                   <input id="operator-results-total" type="number" step="0.01" min="0" required placeholder="Ex.: 120">
-                </label>
-
-                <label>
-                  <span>Producao Med</span>
-                  <input id="operator-results-average" type="number" step="0.01" min="0" required placeholder="Ex.: 5.4">
                 </label>
               </div>
 
@@ -453,11 +475,6 @@
                 </label>
               </div>
 
-              <label>
-                <span>Presenca D-1 (%)</span>
-                <input id="operator-results-presence" type="number" step="0.01" min="0" max="100" required placeholder="Ex.: 98.0">
-              </label>
-
               <div class="form-actions">
                 <button class="primary-button" type="submit">Salvar resultados</button>
               </div>
@@ -467,6 +484,10 @@
                 <button id="operator-results-upload-trigger" class="ghost-button" type="button">Carga por planilha</button>
                 <input id="operator-results-upload-file" type="file" class="hidden" accept=".xlsx,.xls,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv">
               </div>
+              <label>
+                <span>Data para carga por planilha</span>
+                <input id="operator-results-upload-date" type="date" required>
+              </label>
             </form>
           </section>
 
@@ -704,7 +725,7 @@
     </article>
   </div>
 
-  <script src="script.js?v=20260416-18"></script>
+  <script src="script.js?v=20260416-22"></script>
 </body>
 </html>
 

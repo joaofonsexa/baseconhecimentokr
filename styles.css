@@ -875,6 +875,40 @@ body[data-theme="dark"] .theme-moon {
 .spotlight-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .my-results-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .my-results-cards + .list-stack { margin-top: 16px; }
+.operation-chart { min-height: 240px; }
+.operation-chart-list { display: grid; gap: 12px; }
+.operation-chart-item { display: grid; gap: 8px; }
+.operation-chart-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.operation-chart-name {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.operation-chart-value {
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.operation-chart-track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.operation-chart-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--brand), var(--brand-strong));
+}
 
 .metric-card {
   background: var(--surface-strong);

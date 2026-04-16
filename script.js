@@ -234,6 +234,8 @@ const elements = {
   myResultsCards: document.querySelector("#my-results-cards"),
   myResultsStatus: document.querySelector("#my-results-status"),
   operationOverviewCards: document.querySelector("#operation-overview-cards"),
+  operationProductionChart: document.querySelector("#operation-production-chart"),
+  operationEffectivenessChart: document.querySelector("#operation-effectiveness-chart"),
   operationByOperator: document.querySelector("#operation-by-operator"),
   activeFilters: document.querySelector("#active-filters"),
   recentUpdates: document.querySelector("#recent-updates"),
@@ -328,15 +330,15 @@ const elements = {
   },
   operatorResults: {
     user: document.querySelector("#operator-results-user"),
+    date: document.querySelector("#operator-results-date"),
     total: document.querySelector("#operator-results-total"),
-    average: document.querySelector("#operator-results-average"),
     effectiveness: document.querySelector("#operator-results-effectiveness"),
     quality: document.querySelector("#operator-results-quality"),
-    presence: document.querySelector("#operator-results-presence"),
     list: document.querySelector("#operator-results-list"),
     downloadTemplate: document.querySelector("#operator-results-download-template"),
     uploadTrigger: document.querySelector("#operator-results-upload-trigger"),
-    uploadFile: document.querySelector("#operator-results-upload-file")
+    uploadFile: document.querySelector("#operator-results-upload-file"),
+    uploadDate: document.querySelector("#operator-results-upload-date")
   }
 };
 
@@ -2194,11 +2196,113 @@ function ensureOperatorResultsStore() {
   return state.meta.operatorResults;
 }
 
+function getDefaultResultDate() {
+  const base = new Date();
+  base.setDate(base.getDate() - 1);
+  const y = base.getFullYear();
+  const m = String(base.getMonth() + 1).padStart(2, "0");
+  const d = String(base.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function normalizeDateKey(value) {
+  const raw = String(value || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return "";
+  const y = parsed.getFullYear();
+  const m = String(parsed.getMonth() + 1).padStart(2, "0");
+  const d = String(parsed.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function normalizeOperatorResultEntry(entry, fallbackDate = getDefaultResultDate()) {
+  if (!entry || typeof entry !== "object") return null;
+  const date = normalizeDateKey(entry.date) || fallbackDate;
+  const productionTotal = Number(entry.productionTotal);
+  const effectiveness = Number(entry.effectiveness);
+  const qualityScore = Number(entry.qualityScore);
+  if (!Number.isFinite(productionTotal) || !Number.isFinite(effectiveness) || !Number.isFinite(qualityScore)) return null;
+  return {
+    date,
+    productionTotal,
+    effectiveness,
+    qualityScore,
+    updatedAt: String(entry.updatedAt || new Date().toISOString()),
+    updatedById: String(entry.updatedById || ""),
+    updatedByName: String(entry.updatedByName || "Gestor")
+  };
+}
+
+function normalizeOperatorResultRecord(record) {
+  if (!record || typeof record !== "object") return null;
+  const fallbackDate = normalizeDateKey(record.updatedAt) || getDefaultResultDate();
+  let entries = Array.isArray(record.entries)
+    ? record.entries.map((entry) => normalizeOperatorResultEntry(entry, fallbackDate)).filter(Boolean)
+    : [];
+
+  if (!entries.length) {
+    const legacyEntry = normalizeOperatorResultEntry(
+      {
+        date: fallbackDate,
+        productionTotal: record.productionTotal,
+        effectiveness: record.effectiveness,
+        qualityScore: record.qualityScore,
+        updatedAt: record.updatedAt,
+        updatedById: record.updatedById,
+        updatedByName: record.updatedByName
+      },
+      fallbackDate
+    );
+    if (legacyEntry) entries = [legacyEntry];
+  }
+
+  if (!entries.length) return null;
+  entries.sort((a, b) => a.date.localeCompare(b.date));
+  const latest = entries[entries.length - 1];
+  const productionAverage = entries.reduce((sum, entry) => sum + entry.productionTotal, 0) / entries.length;
+
+  return {
+    userId: String(record.userId || ""),
+    entries,
+    daysCount: entries.length,
+    productionTotal: latest.productionTotal,
+    productionAverage,
+    effectiveness: latest.effectiveness,
+    qualityScore: latest.qualityScore,
+    updatedAt: latest.updatedAt,
+    updatedById: latest.updatedById,
+    updatedByName: latest.updatedByName
+  };
+}
+
 function getOperatorResult(userId) {
   if (!userId) return null;
   const map = ensureOperatorResultsStore();
-  const record = map[userId];
-  return record && typeof record === "object" ? record : null;
+  const record = normalizeOperatorResultRecord(map[userId]);
+  if (!record) return null;
+  map[userId] = record;
+  return record;
+}
+
+function upsertOperatorDailyResult(userId, payload) {
+  const map = ensureOperatorResultsStore();
+  const current = getOperatorResult(userId) || { userId, entries: [] };
+  const nextEntry = normalizeOperatorResultEntry(payload, getDefaultResultDate());
+  if (!nextEntry) return null;
+
+  const entries = Array.isArray(current.entries) ? [...current.entries] : [];
+  const existingIndex = entries.findIndex((entry) => entry.date === nextEntry.date);
+  if (existingIndex >= 0) {
+    entries.splice(existingIndex, 1, nextEntry);
+  } else {
+    entries.push(nextEntry);
+  }
+
+  const normalized = normalizeOperatorResultRecord({ userId, entries });
+  if (!normalized) return null;
+  map[userId] = normalized;
+  return normalized;
 }
 
 function parseMetricInput(value) {
@@ -2235,11 +2339,14 @@ function formatMetric(value, options = {}) {
 function hydrateOperatorResultsForm(userId) {
   if (!elements.operatorResults.user) return;
   const record = getOperatorResult(userId);
+  const defaultDate = getDefaultResultDate();
+  elements.operatorResults.date.value = defaultDate;
+  if (elements.operatorResults.uploadDate && !elements.operatorResults.uploadDate.value) {
+    elements.operatorResults.uploadDate.value = defaultDate;
+  }
   elements.operatorResults.total.value = Number.isFinite(record?.productionTotal) ? String(record.productionTotal) : "";
-  elements.operatorResults.average.value = Number.isFinite(record?.productionAverage) ? String(record.productionAverage) : "";
   elements.operatorResults.effectiveness.value = Number.isFinite(record?.effectiveness) ? String(record.effectiveness) : "";
   elements.operatorResults.quality.value = Number.isFinite(record?.qualityScore) ? String(record.qualityScore) : "";
-  elements.operatorResults.presence.value = Number.isFinite(record?.presenceD1) ? String(record.presenceD1) : "";
 }
 
 function renderMyResults() {
@@ -2278,11 +2385,12 @@ function renderMyResults() {
     <article class="admin-item">
       <div class="admin-item-top">
         <div>
-          <strong>Presenca D-1: ${formatMetric(result.presenceD1, { suffix: "%", maxDigits: 2 })}</strong>
+          <strong>Média de produção: ${formatMetric(result.productionAverage, { maxDigits: 2 })}</strong>
           <p>Atualizado em ${escapeHtml(formatDateTime(result.updatedAt || ""))}</p>
         </div>
         <span class="badge script">Tempo real</span>
       </div>
+      <p>Dias cadastrados: ${escapeHtml(String(result.daysCount || 0))}</p>
       <p>Lancado por: ${escapeHtml(result.updatedByName || "Gestor")}</p>
     </article>
   `;
@@ -2292,14 +2400,14 @@ function renderMyOperation() {
   if (!elements.operationOverviewCards || !elements.operationByOperator) return;
   if (!canManageContent()) {
     elements.operationOverviewCards.innerHTML = "";
+    if (elements.operationProductionChart) elements.operationProductionChart.innerHTML = "";
+    if (elements.operationEffectivenessChart) elements.operationEffectivenessChart.innerHTML = "";
     elements.operationByOperator.innerHTML = `<div class="empty-state"><div><p class="eyebrow">Acesso restrito</p><h3>Somente Gestor pode visualizar a operação.</h3></div></div>`;
     return;
   }
 
-  const resultsMap = ensureOperatorResultsStore();
-  const operators = [...state.users]
-    .filter((user) => user && !ACCESS_LEVELS[user.role]?.canEdit)
-    .map((user) => ({ user, result: resultsMap[user.id] }))
+  const operators = getOperatorUsers()
+    .map((user) => ({ user, result: getOperatorResult(user.id) }))
     .filter((entry) => entry.result);
 
   if (!operators.length) {
@@ -2310,6 +2418,12 @@ function renderMyOperation() {
       <article class="metric-card"><span>Qualidade media</span><strong>--</strong></article>
     `;
     elements.operationByOperator.innerHTML = `<div class="empty-state"><div><p class="eyebrow">Sem dados</p><h3>Nenhum resultado D-1 cadastrado para operadores.</h3></div></div>`;
+    if (elements.operationProductionChart) {
+      elements.operationProductionChart.innerHTML = `<div class="empty-state"><div><h3>Sem dados de produção.</h3></div></div>`;
+    }
+    if (elements.operationEffectivenessChart) {
+      elements.operationEffectivenessChart.innerHTML = `<div class="empty-state"><div><h3>Sem dados de efetividade.</h3></div></div>`;
+    }
     return;
   }
 
@@ -2343,6 +2457,8 @@ function renderMyOperation() {
     </article>
   `;
 
+  renderOperationRankingCharts(operators);
+
   const sorted = operators.sort((a, b) => String(a.user.name || "").localeCompare(String(b.user.name || ""), "pt-BR"));
   elements.operationByOperator.innerHTML = sorted
     .map(({ user, result }) => `
@@ -2359,6 +2475,52 @@ function renderMyOperation() {
       </article>
     `)
     .join("");
+}
+
+function renderOperationRankingCharts(operatorEntries) {
+  if (!elements.operationProductionChart || !elements.operationEffectivenessChart) return;
+  const source = Array.isArray(operatorEntries) ? [...operatorEntries] : [];
+  if (!source.length) {
+    elements.operationProductionChart.innerHTML = "";
+    elements.operationEffectivenessChart.innerHTML = "";
+    return;
+  }
+
+  const productionRanking = source
+    .map((entry) => ({ ...entry, metric: Number(entry.result?.productionTotal || 0) }))
+    .sort((a, b) => b.metric - a.metric);
+
+  const effectivenessRanking = source
+    .map((entry) => ({ ...entry, metric: Number(entry.result?.effectiveness || 0) }))
+    .sort((a, b) => b.metric - a.metric);
+
+  elements.operationProductionChart.innerHTML = buildOperationRankingMarkup(productionRanking, { suffix: "", maxDigits: 2 });
+  elements.operationEffectivenessChart.innerHTML = buildOperationRankingMarkup(effectivenessRanking, { suffix: "%", maxDigits: 2 });
+}
+
+function buildOperationRankingMarkup(items, formatOptions = {}) {
+  const maxValue = Math.max(...items.map((item) => Number(item.metric || 0)), 0);
+  return `
+    <div class="operation-chart-list">
+      ${items
+        .map((item, index) => {
+          const value = Number(item.metric || 0);
+          const width = maxValue > 0 ? Math.max(4, Math.round((value / maxValue) * 100)) : 0;
+          return `
+            <div class="operation-chart-item">
+              <div class="operation-chart-head">
+                <span class="operation-chart-name">${index + 1}. ${escapeHtml(item.user?.name || "Operador")}</span>
+                <strong class="operation-chart-value">${escapeHtml(formatMetric(value, formatOptions))}</strong>
+              </div>
+              <div class="operation-chart-track">
+                <span class="operation-chart-fill" style="width:${width}%"></span>
+              </div>
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
 }
 
 function renderOperatorResultsAdmin() {
@@ -2385,9 +2547,8 @@ function renderOperatorResultsAdmin() {
     elements.operatorResults.user.dataset.selectedUserId = nextSelected;
   }
 
-  const resultsMap = ensureOperatorResultsStore();
   const items = operators
-    .map((user) => ({ user, result: resultsMap[user.id] }))
+    .map((user) => ({ user, result: getOperatorResult(user.id) }))
     .filter((entry) => entry.result)
     .sort((a, b) => Date.parse(b.result.updatedAt || 0) - Date.parse(a.result.updatedAt || 0));
 
@@ -2407,7 +2568,7 @@ function renderOperatorResultsAdmin() {
           <span class="badge manual">${escapeHtml(formatDateTime(result.updatedAt || ""))}</span>
         </div>
         <p>Producao Total: <strong>${escapeHtml(formatMetric(result.productionTotal, { maxDigits: 2 }))}</strong> • Producao Med: <strong>${escapeHtml(formatMetric(result.productionAverage, { maxDigits: 2 }))}</strong></p>
-        <p>Efetividade: <strong>${escapeHtml(formatMetric(result.effectiveness, { suffix: "%", maxDigits: 2 }))}</strong> • Nota: <strong>${escapeHtml(formatMetric(result.qualityScore, { suffix: "%", maxDigits: 2 }))}</strong> • Presenca D-1: <strong>${escapeHtml(formatMetric(result.presenceD1, { suffix: "%", maxDigits: 2 }))}</strong></p>
+        <p>Efetividade: <strong>${escapeHtml(formatMetric(result.effectiveness, { suffix: "%", maxDigits: 2 }))}</strong> • Nota: <strong>${escapeHtml(formatMetric(result.qualityScore, { suffix: "%", maxDigits: 2 }))}</strong> • Dias: <strong>${escapeHtml(String(result.daysCount || 0))}</strong></p>
       </article>
     `)
     .join("");
@@ -2419,7 +2580,7 @@ function getSectionLabel(sectionId) {
     explorer: "Explorar conteúdos",
     favorites: "Favoritos",
     "meus-resultados": "Meus resultados",
-    "minha-operacao": "Minha operação",
+    "minha-operacao": "Minha equipe",
     admin: "Área administrativa",
     operacional: "Painel Operacional",
     "content-view-screen": "Visualização",
@@ -3146,34 +3307,33 @@ async function handleOperatorResultsSubmit(event) {
   }
 
   const productionTotal = parseMetricInput(elements.operatorResults.total.value);
-  const productionAverage = parseMetricInput(elements.operatorResults.average.value);
+  const resultDate = normalizeDateKey(elements.operatorResults.date.value);
   const effectiveness = parseMetricInput(elements.operatorResults.effectiveness.value);
   const qualityScore = parseMetricInput(elements.operatorResults.quality.value);
-  const presenceD1 = parseMetricInput(elements.operatorResults.presence.value);
 
   if (
+    !resultDate ||
     !Number.isFinite(productionTotal) ||
-    !Number.isFinite(productionAverage) ||
     !Number.isFinite(effectiveness) ||
-    !Number.isFinite(qualityScore) ||
-    !Number.isFinite(presenceD1)
+    !Number.isFinite(qualityScore)
   ) {
-    alert("Preencha todos os indicadores com valores numericos.");
+    alert("Preencha data, producao, efetividade e qualidade com valores validos.");
     return;
   }
 
-  const store = ensureOperatorResultsStore();
-  store[userId] = {
-    userId,
+  const saved = upsertOperatorDailyResult(userId, {
+    date: resultDate,
     productionTotal,
-    productionAverage,
     effectiveness,
     qualityScore,
-    presenceD1,
     updatedAt: new Date().toISOString(),
     updatedById: state.session?.id || "",
     updatedByName: state.session?.name || "Gestor"
-  };
+  });
+  if (!saved) {
+    alert("Nao foi possivel salvar os resultados desse dia.");
+    return;
+  }
 
   await saveState({ awaitRemote: true });
   renderAll();
@@ -3188,13 +3348,14 @@ function handleDownloadOperatorResultsTemplate() {
 
   const operators = getOperatorUsers();
   const rows = [
-    ["Nome do Operador", "Usuario", "Efetividade", "Producao", "Qualidade"]
+    ["Nome do Operador", "Usuario", "Data", "Efetividade", "Producao", "Qualidade"]
   ];
 
   operators.forEach((operator) => {
     rows.push([
       operator.name || "",
       operator.username || "",
+      getDefaultResultDate(),
       "",
       "",
       ""
@@ -3211,6 +3372,12 @@ async function handleOperatorResultsSpreadsheetUpload(event) {
   if (!canManageContent()) return;
   const file = event.target?.files?.[0];
   if (!file) return;
+  const uploadDate = normalizeDateKey(elements.operatorResults.uploadDate?.value || "");
+  if (!uploadDate) {
+    alert("Selecione a data da carga antes de importar a planilha.");
+    if (event.target) event.target.value = "";
+    return;
+  }
   if (!window.XLSX) {
     alert("Biblioteca de planilha indisponivel no momento.");
     event.target.value = "";
@@ -3244,7 +3411,6 @@ async function handleOperatorResultsSpreadsheetUpload(event) {
     const operators = getOperatorUsers();
     const operatorByUsername = new Map(operators.map((operator) => [normalizeLooseText(operator.username), operator]));
     const operatorByName = new Map(operators.map((operator) => [normalizeLooseText(operator.name), operator]));
-    const store = ensureOperatorResultsStore();
     let updatedCount = 0;
 
     for (let rowIndex = 1; rowIndex < rows.length; rowIndex += 1) {
@@ -3261,18 +3427,16 @@ async function handleOperatorResultsSpreadsheetUpload(event) {
         continue;
       }
 
-      const previous = getOperatorResult(operator.id) || {};
-      store[operator.id] = {
-        userId: operator.id,
+      const saved = upsertOperatorDailyResult(operator.id, {
+        date: uploadDate,
         productionTotal,
-        productionAverage: Number.isFinite(previous.productionAverage) ? previous.productionAverage : 0,
         effectiveness,
         qualityScore,
-        presenceD1: Number.isFinite(previous.presenceD1) ? previous.presenceD1 : 0,
         updatedAt: new Date().toISOString(),
         updatedById: state.session?.id || "",
         updatedByName: state.session?.name || "Gestor"
-      };
+      });
+      if (!saved) continue;
       updatedCount += 1;
     }
 
