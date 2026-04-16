@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "baseconhecimentokra",
+  "compatibility_date": "2026-04-16",
+  "pages_build_output_dir": ".",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "baseconhecimento_db",
+      "database_id": "c4563c64-1735-4548-9d97-b28137a2e7aa"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "r2base",
+      "bucket_name": "baseconhecimento"
+    }
+  ]
+}
