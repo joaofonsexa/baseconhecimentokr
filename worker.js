@@ -130,11 +130,13 @@ function attachmentToRow(attachment, contentId, position) {
 }
 
 function userToRow(user) {
+  const username = String(user?.username || "").trim();
+  const safeEmail = String(user?.email || "").trim() || (username ? `${username}@krcs.com.br` : "");
   return {
     id: String(user?.id || ""),
     name: String(user?.name || ""),
-    username: String(user?.username || ""),
-    email: String(user?.email || ""),
+    username,
+    email: safeEmail,
     role: String(user?.role || "operador"),
     team: String(user?.team || ""),
     access_level_name: String(user?.accessLevel || user?.access_level_name || ""),
@@ -420,45 +422,62 @@ export default {
           return jsonResponse({ ok: true, users });
         }
 
-          if (url.pathname === "/api/users" && request.method === "POST") {
+        if (url.pathname === "/api/users" && request.method === "POST") {
           const body = await request.json();
           const row = userToRow(body || {});
           if (!row.id || !row.name || !row.username) {
             return jsonResponse({ ok: false, error: "Dados do usuario invalidos." }, 400);
           }
 
-          await env.DB
-            .prepare(
-              `INSERT INTO users (
-                id, name, username, email, role, team, access_level_name, permissions_json, password, must_change_password, active, created_at, updated_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-              ON CONFLICT(id) DO UPDATE SET
-                name = excluded.name,
-                username = excluded.username,
-                email = excluded.email,
-                role = excluded.role,
-                team = excluded.team,
-                access_level_name = excluded.access_level_name,
-                permissions_json = excluded.permissions_json,
-                password = excluded.password,
-                must_change_password = excluded.must_change_password,
-                active = excluded.active,
-                updated_at = datetime('now')`
-            )
-            .bind(
-              row.id,
-              row.name,
-              row.username,
-              row.email,
-              row.role,
-              row.team,
-              row.access_level_name,
-              row.permissions_json,
-              row.password,
-              row.must_change_password,
-              row.active
-            )
-            .run();
+          try {
+            const normalizedUsername = String(row.username || "").trim().toLowerCase();
+            const existingByUsername = await env.DB
+              .prepare("SELECT id FROM users WHERE lower(trim(username)) = ? LIMIT 1")
+              .bind(normalizedUsername)
+              .first();
+            const targetId = String(existingByUsername?.id || row.id);
+            await env.DB
+              .prepare(
+                `INSERT INTO users (
+                  id, name, username, email, role, team, access_level_name, permissions_json, password, must_change_password, active, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+                ON CONFLICT(id) DO UPDATE SET
+                  name = excluded.name,
+                  username = excluded.username,
+                  email = excluded.email,
+                  role = excluded.role,
+                  team = excluded.team,
+                  access_level_name = excluded.access_level_name,
+                  permissions_json = excluded.permissions_json,
+                  password = excluded.password,
+                  must_change_password = excluded.must_change_password,
+                  active = excluded.active,
+                  updated_at = datetime('now')`
+              )
+              .bind(
+                targetId,
+                row.name,
+                row.username,
+                row.email,
+                row.role,
+                row.team,
+                row.access_level_name,
+                row.permissions_json,
+                row.password,
+                row.must_change_password,
+                1
+              )
+              .run();
+          } catch (error) {
+            const message = String(error?.message || error || "");
+            if (message.includes("users.username")) {
+              return jsonResponse({ ok: false, error: "Ja existe um usuario com esse login." }, 409);
+            }
+            if (message.includes("users.email")) {
+              return jsonResponse({ ok: false, error: "Nao foi possivel salvar: conflito interno de e-mail." }, 409);
+            }
+            throw error;
+          }
 
            const users = await resolveUsersForLogin(env.DB);
            return jsonResponse({ ok: true, users });
