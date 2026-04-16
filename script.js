@@ -231,6 +231,8 @@ const elements = {
   tagFilters: document.querySelector("#tag-filters"),
   resultsList: document.querySelector("#results-list"),
   favoritesList: document.querySelector("#favorites-list"),
+  myResultsCards: document.querySelector("#my-results-cards"),
+  myResultsStatus: document.querySelector("#my-results-status"),
   activeFilters: document.querySelector("#active-filters"),
   recentUpdates: document.querySelector("#recent-updates"),
   mostAccessed: document.querySelector("#most-accessed"),
@@ -294,6 +296,7 @@ const elements = {
   toggleHistory: document.querySelector("#toggle-history"),
   contentForm: document.querySelector("#content-form"),
   userForm: document.querySelector("#user-form"),
+  operatorResultsForm: document.querySelector("#operator-results-form"),
   cancelUserEdit: document.querySelector("#cancel-user-edit"),
   cancelEdit: document.querySelector("#cancel-edit"),
   navLinks: Array.from(document.querySelectorAll(".nav-link")),
@@ -320,6 +323,15 @@ const elements = {
     username: document.querySelector("#user-username"),
     role: document.querySelector("#user-role"),
     password: document.querySelector("#user-password")
+  },
+  operatorResults: {
+    user: document.querySelector("#operator-results-user"),
+    total: document.querySelector("#operator-results-total"),
+    average: document.querySelector("#operator-results-average"),
+    effectiveness: document.querySelector("#operator-results-effectiveness"),
+    quality: document.querySelector("#operator-results-quality"),
+    presence: document.querySelector("#operator-results-presence"),
+    list: document.querySelector("#operator-results-list")
   }
 };
 
@@ -444,7 +456,8 @@ function createDefaultMeta() {
     alertedUrgentNotifications: {},
     activePresence: {},
     forcedLogouts: {},
-    userViewState: {}
+    userViewState: {},
+    operatorResults: {}
   };
 }
 
@@ -528,7 +541,8 @@ function normalizeMeta(value) {
         : {},
     activePresence: value?.activePresence && typeof value.activePresence === "object" ? value.activePresence : {},
     forcedLogouts: value?.forcedLogouts && typeof value.forcedLogouts === "object" ? value.forcedLogouts : {},
-    userViewState: value?.userViewState && typeof value.userViewState === "object" ? value.userViewState : {}
+    userViewState: value?.userViewState && typeof value.userViewState === "object" ? value.userViewState : {},
+    operatorResults: value?.operatorResults && typeof value.operatorResults === "object" ? value.operatorResults : {}
   };
 }
 
@@ -1234,6 +1248,10 @@ function bindEvents() {
     renderOperationalPanel();
   });
   elements.userForm.addEventListener("submit", handleUserSubmit);
+  elements.operatorResultsForm?.addEventListener("submit", handleOperatorResultsSubmit);
+  elements.operatorResults.user?.addEventListener("change", () => {
+    hydrateOperatorResultsForm(elements.operatorResults.user.value);
+  });
   elements.cancelUserEdit.addEventListener("click", resetUserForm);
   elements.openContentCreate?.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -1309,7 +1327,7 @@ function setSection(sectionId) {
   saveState();
   elements.navLinks.forEach((item) => item.classList.toggle("active", item.dataset.section === sectionId));
   elements.sectionNodes.forEach((section) => section.classList.toggle("active", section.id === sectionId));
-    elements.globalFilterPanel?.classList.toggle("hidden", ["admin", "operacional"].includes(sectionId));
+  elements.globalFilterPanel?.classList.toggle("hidden", ["admin", "operacional", "meus-resultados"].includes(sectionId));
   renderAll();
 }
 
@@ -1334,7 +1352,7 @@ function syncAuthView() {
     const allowed = canAccessSection(button.dataset.section);
     button.classList.toggle("hidden", !allowed);
   });
-  elements.globalFilterPanel?.classList.toggle("hidden", ["admin", "operacional"].includes(state.section));
+  elements.globalFilterPanel?.classList.toggle("hidden", ["admin", "operacional", "meus-resultados"].includes(state.section));
 
   if (!canAccessSection(state.section)) {
     state.section = "explorer";
@@ -1374,7 +1392,7 @@ function canAccessSection(sectionId) {
   if (!state.session) return false;
   if (sectionId === "content-view-screen") return true;
   if (["admin", "operacional", "content-editor-screen"].includes(sectionId)) return canManageContent();
-  return ["dashboard", "explorer", "favorites"].includes(sectionId);
+  return ["dashboard", "explorer", "favorites", "meus-resultados"].includes(sectionId);
 }
 
 async function promptForPasswordChange(userId, reasonLabel) {
@@ -1590,12 +1608,14 @@ function renderAll() {
   renderFilterGroups();
   renderResults();
   renderFavorites();
+  renderMyResults();
   renderDetail();
   renderMostAccessed();
   renderRecentUpdates();
   renderHistory();
   renderAdminList();
   renderUsersList();
+  renderOperatorResultsAdmin();
   renderOperationalPanel();
   renderNotifications();
   maybeShowUrgentModal();
@@ -2155,11 +2175,154 @@ function renderUsersList() {
   });
 }
 
+function ensureOperatorResultsStore() {
+  state.meta.operatorResults =
+    state.meta.operatorResults && typeof state.meta.operatorResults === "object"
+      ? state.meta.operatorResults
+      : {};
+  return state.meta.operatorResults;
+}
+
+function getOperatorResult(userId) {
+  if (!userId) return null;
+  const map = ensureOperatorResultsStore();
+  const record = map[userId];
+  return record && typeof record === "object" ? record : null;
+}
+
+function parseMetricInput(value) {
+  const normalized = String(value || "").trim().replace(",", ".");
+  if (!normalized) return null;
+  const numeric = Number(normalized);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function formatMetric(value, options = {}) {
+  const suffix = String(options.suffix || "");
+  const maxDigits = Number.isFinite(options.maxDigits) ? options.maxDigits : 2;
+  if (!Number.isFinite(value)) return "--";
+  return `${new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: maxDigits
+  }).format(value)}${suffix}`;
+}
+
+function hydrateOperatorResultsForm(userId) {
+  if (!elements.operatorResults.user) return;
+  const record = getOperatorResult(userId);
+  elements.operatorResults.total.value = Number.isFinite(record?.productionTotal) ? String(record.productionTotal) : "";
+  elements.operatorResults.average.value = Number.isFinite(record?.productionAverage) ? String(record.productionAverage) : "";
+  elements.operatorResults.effectiveness.value = Number.isFinite(record?.effectiveness) ? String(record.effectiveness) : "";
+  elements.operatorResults.quality.value = Number.isFinite(record?.qualityScore) ? String(record.qualityScore) : "";
+  elements.operatorResults.presence.value = Number.isFinite(record?.presenceD1) ? String(record.presenceD1) : "";
+}
+
+function renderMyResults() {
+  if (!elements.myResultsCards || !elements.myResultsStatus || !state.session?.id) return;
+  const result = getOperatorResult(state.session.id);
+
+  const cards = [
+    { label: "Producao Total", value: result?.productionTotal, suffix: "", maxDigits: 2 },
+    { label: "Producao Med", value: result?.productionAverage, suffix: "", maxDigits: 2 },
+    { label: "Efetividade", value: result?.effectiveness, suffix: "%", maxDigits: 2 },
+    { label: "Nota de qualidade", value: result?.qualityScore, suffix: "%", maxDigits: 2 }
+  ];
+
+  elements.myResultsCards.innerHTML = cards
+    .map((card) => `
+      <article class="metric-card">
+        <span>${card.label}</span>
+        <strong>${formatMetric(card.value, { suffix: card.suffix, maxDigits: card.maxDigits })}</strong>
+      </article>
+    `)
+    .join("");
+
+  if (!result) {
+    elements.myResultsStatus.innerHTML = `
+      <div class="empty-state">
+        <div>
+          <p class="eyebrow">Sem lancamento</p>
+          <h3>Seu gestor ainda nao cadastrou seus resultados.</h3>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  elements.myResultsStatus.innerHTML = `
+    <article class="admin-item">
+      <div class="admin-item-top">
+        <div>
+          <strong>Presenca D-1: ${formatMetric(result.presenceD1, { suffix: "%", maxDigits: 2 })}</strong>
+          <p>Atualizado em ${escapeHtml(formatDateTime(result.updatedAt || ""))}</p>
+        </div>
+        <span class="badge script">Tempo real</span>
+      </div>
+      <p>Lancado por: ${escapeHtml(result.updatedByName || "Gestor")}</p>
+    </article>
+  `;
+}
+
+function renderOperatorResultsAdmin() {
+  if (!elements.operatorResults.user || !elements.operatorResults.list) return;
+  if (!canManageContent()) {
+    elements.operatorResults.list.innerHTML = `<div class="empty-state"><div><p class="eyebrow">Acesso restrito</p><h3>Somente Gestor pode lancar resultados.</h3></div></div>`;
+    return;
+  }
+
+  const operators = [...state.users]
+    .filter((user) => user && !ACCESS_LEVELS[user.role]?.canEdit)
+    .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "pt-BR"));
+
+  const previousSelected = elements.operatorResults.user.value;
+  elements.operatorResults.user.innerHTML = operators.length
+    ? operators.map((user) => `<option value="${escapeHtml(user.id)}">${escapeHtml(user.name)} (${escapeHtml(user.username || "sem login")})</option>`).join("")
+    : `<option value="">Nenhum operador cadastrado</option>`;
+
+  if (operators.length) {
+    const nextSelected = operators.some((user) => user.id === previousSelected) ? previousSelected : operators[0].id;
+    const selectionChanged = elements.operatorResults.user.dataset.selectedUserId !== nextSelected;
+    elements.operatorResults.user.value = nextSelected;
+    if (selectionChanged) {
+      hydrateOperatorResultsForm(nextSelected);
+    }
+    elements.operatorResults.user.dataset.selectedUserId = nextSelected;
+  }
+
+  const resultsMap = ensureOperatorResultsStore();
+  const items = operators
+    .map((user) => ({ user, result: resultsMap[user.id] }))
+    .filter((entry) => entry.result)
+    .sort((a, b) => Date.parse(b.result.updatedAt || 0) - Date.parse(a.result.updatedAt || 0));
+
+  if (!items.length) {
+    elements.operatorResults.list.innerHTML = `<div class="empty-state"><div><p class="eyebrow">Sem lancamentos</p><h3>Nenhum resultado foi cadastrado ate o momento.</h3></div></div>`;
+    return;
+  }
+
+  elements.operatorResults.list.innerHTML = items
+    .map(({ user, result }) => `
+      <article class="admin-item">
+        <div class="admin-item-top">
+          <div>
+            <strong>${escapeHtml(user.name || "Operador")}</strong>
+            <p>${escapeHtml(user.username || "")}</p>
+          </div>
+          <span class="badge manual">${escapeHtml(formatDateTime(result.updatedAt || ""))}</span>
+        </div>
+        <p>Producao Total: <strong>${escapeHtml(formatMetric(result.productionTotal, { maxDigits: 2 }))}</strong> • Producao Med: <strong>${escapeHtml(formatMetric(result.productionAverage, { maxDigits: 2 }))}</strong></p>
+        <p>Efetividade: <strong>${escapeHtml(formatMetric(result.effectiveness, { suffix: "%", maxDigits: 2 }))}</strong> • Nota: <strong>${escapeHtml(formatMetric(result.qualityScore, { suffix: "%", maxDigits: 2 }))}</strong> • Presenca D-1: <strong>${escapeHtml(formatMetric(result.presenceD1, { suffix: "%", maxDigits: 2 }))}</strong></p>
+      </article>
+    `)
+    .join("");
+}
+
 function getSectionLabel(sectionId) {
   const labels = {
     dashboard: "Dashboard",
     explorer: "Explorar conteúdos",
     favorites: "Favoritos",
+    "meus-resultados": "Meus resultados",
     admin: "Área administrativa",
     operacional: "Painel Operacional",
     "content-view-screen": "Visualização",
@@ -2874,6 +3037,51 @@ async function handleUserSubmit(event) {
   renderAll();
 }
 
+async function handleOperatorResultsSubmit(event) {
+  event.preventDefault();
+  if (!canManageContent()) return;
+
+  const userId = String(elements.operatorResults.user?.value || "").trim();
+  const targetUser = state.users.find((item) => item.id === userId);
+  if (!userId || !targetUser) {
+    alert("Selecione um operador valido.");
+    return;
+  }
+
+  const productionTotal = parseMetricInput(elements.operatorResults.total.value);
+  const productionAverage = parseMetricInput(elements.operatorResults.average.value);
+  const effectiveness = parseMetricInput(elements.operatorResults.effectiveness.value);
+  const qualityScore = parseMetricInput(elements.operatorResults.quality.value);
+  const presenceD1 = parseMetricInput(elements.operatorResults.presence.value);
+
+  if (
+    !Number.isFinite(productionTotal) ||
+    !Number.isFinite(productionAverage) ||
+    !Number.isFinite(effectiveness) ||
+    !Number.isFinite(qualityScore) ||
+    !Number.isFinite(presenceD1)
+  ) {
+    alert("Preencha todos os indicadores com valores numericos.");
+    return;
+  }
+
+  const store = ensureOperatorResultsStore();
+  store[userId] = {
+    userId,
+    productionTotal,
+    productionAverage,
+    effectiveness,
+    qualityScore,
+    presenceD1,
+    updatedAt: new Date().toISOString(),
+    updatedById: state.session?.id || "",
+    updatedByName: state.session?.name || "Gestor"
+  };
+
+  await saveState({ awaitRemote: true });
+  renderAll();
+}
+
 function populateUserForm(userId) {
   if (!canManageContent()) return;
   const user = state.users.find((item) => item.id === userId);
@@ -2893,6 +3101,8 @@ function resetUserForm() {
 function removeUser(userId) {
   if (!canManageContent()) return;
   state.users = state.users.filter((item) => item.id !== userId);
+  const operatorResults = ensureOperatorResultsStore();
+  delete operatorResults[userId];
   void saveState();
   renderAll();
 }

@@ -873,6 +873,8 @@ body[data-theme="dark"] .theme-moon {
 .spotlight-copy p:last-child { color: var(--muted); line-height: 1.6; }
 
 .spotlight-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.my-results-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.my-results-cards + .list-stack { margin-top: 16px; }
 
 .metric-card {
   background: var(--surface-strong);
@@ -1830,7 +1832,7 @@ body[data-theme="dark"] .admin-form input[type="file"]::file-selector-button:hov
   .main-content, .sidebar { padding: 18px; }
   .login-card { padding: 22px; }
   .hero-header, .panel, .spotlight-card { padding: 18px; }
-  .spotlight-stats, .form-grid { grid-template-columns: 1fr; }
+  .spotlight-stats, .my-results-cards, .form-grid { grid-template-columns: 1fr; }
   .search-box { min-height: 60px; }
   .hero-copy h2 { max-width: none; }
   .top-utility-bar { justify-content: space-between; }
