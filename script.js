@@ -707,6 +707,7 @@ async function persistContentView(contentId, view) {
     });
     const payload = await response.json().catch(() => null);
     if (!response.ok || !payload?.ok) {
+      void saveState({ awaitRemote: true });
       return;
     }
     if (auditContentId && auditContentId === contentId) {
@@ -714,7 +715,8 @@ async function persistContentView(contentId, view) {
     }
     void pullRemoteState(true);
   } catch (error) {
-    // keep local read stats even if remote endpoint is temporarily unavailable
+    // fallback sync through app_state if dedicated endpoint is unavailable
+    void saveState({ awaitRemote: true });
   }
 }
 

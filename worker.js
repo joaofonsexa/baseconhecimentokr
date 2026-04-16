@@ -355,6 +355,21 @@ async function loadState(db) {
     const parsed = safeParse(row.json_state, null);
       if (parsed && typeof parsed === "object") {
         const relationalState = await buildStateFromTables(db);
+        const parsedContentMap = new Map(
+          (Array.isArray(parsed.content) ? parsed.content : [])
+            .filter((item) => item && item.id)
+            .map((item) => [item.id, item])
+        );
+        const mergedContent = (Array.isArray(relationalState.content) ? relationalState.content : []).map((item) => {
+          const parsedItem = parsedContentMap.get(item.id);
+          const dbStats = item?.viewStats && typeof item.viewStats === "object" ? item.viewStats : {};
+          const parsedStats = parsedItem?.viewStats && typeof parsedItem.viewStats === "object" ? parsedItem.viewStats : {};
+          const nextViewStats = Object.keys(dbStats).length ? dbStats : parsedStats;
+          return {
+            ...item,
+            viewStats: nextViewStats
+          };
+        });
         return hydrateAttachments(db, {
           ...parsed,
           meta: {
@@ -363,7 +378,7 @@ async function loadState(db) {
             alertedUrgentNotifications: relationalState.meta?.alertedUrgentNotifications || {}
           },
           users: relationalState.users,
-          content: relationalState.content,
+          content: mergedContent,
           companyName: relationalState.companyName,
           helpCenter: relationalState.helpCenter
         });
