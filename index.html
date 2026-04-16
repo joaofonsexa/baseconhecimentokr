@@ -25,7 +25,14 @@
   <script>
     try {
       const savedSession = JSON.parse(sessionStorage.getItem("pulse-kb-session-v1") || "null");
-      const theme = savedSession?.theme === "light" ? "light" : savedSession?.theme === "dark" ? "dark" : "dark";
+      const savedTheme = localStorage.getItem("pulse-kb-theme-v1");
+      const theme = savedSession?.theme === "light"
+        ? "light"
+        : savedSession?.theme === "dark"
+          ? "dark"
+          : savedTheme === "light" || savedTheme === "dark"
+            ? savedTheme
+            : "dark";
       document.documentElement.style.colorScheme = theme;
     } catch (error) {}
   </script>
@@ -34,7 +41,14 @@
   <script>
     try {
       const savedSession = JSON.parse(sessionStorage.getItem("pulse-kb-session-v1") || "null");
-      const theme = savedSession?.theme === "light" ? "light" : savedSession?.theme === "dark" ? "dark" : "dark";
+      const savedTheme = localStorage.getItem("pulse-kb-theme-v1");
+      const theme = savedSession?.theme === "light"
+        ? "light"
+        : savedSession?.theme === "dark"
+          ? "dark"
+          : savedTheme === "light" || savedTheme === "dark"
+            ? savedTheme
+            : "dark";
       document.body.setAttribute("data-theme", theme);
       document.documentElement.style.colorScheme = theme;
     } catch (error) {}

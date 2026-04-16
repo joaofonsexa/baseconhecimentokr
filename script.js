@@ -325,7 +325,7 @@ const elements = {
 init();
 
 async function init() {
-  applyTheme(state.theme || DEFAULT_THEME);
+  applyTheme(loadStoredTheme() || state.theme || DEFAULT_THEME);
   state.session = loadSession();
   if (state.session?.theme) {
     state.theme = state.session.theme;
@@ -699,10 +699,27 @@ function loadSession() {
       role: String(saved.role),
       username: String(saved.username || ""),
       loginAt: String(saved.loginAt || new Date().toISOString()),
-      theme: saved.theme === "light" ? "light" : saved.theme === "dark" ? "dark" : DEFAULT_THEME
+      theme: saved.theme === "light" ? "light" : saved.theme === "dark" ? "dark" : loadStoredTheme() || DEFAULT_THEME
     };
   } catch (error) {
     return null;
+  }
+}
+
+function loadStoredTheme() {
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    return saved === "light" || saved === "dark" ? saved : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function saveStoredTheme(theme) {
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch (error) {
+    // ignore local storage errors
   }
 }
 
@@ -1494,6 +1511,7 @@ async function handleResetPassword() {
 function applyTheme(theme) {
   const nextTheme = theme === "dark" ? "dark" : "light";
   state.theme = nextTheme;
+  saveStoredTheme(nextTheme);
   persistCurrentUserViewState();
   if (state.session) {
     state.session = { ...state.session, theme: nextTheme };
