@@ -11,7 +11,7 @@ const REMOTE_USERS_URL = `${REMOTE_API_BASE}/users`;
 const REMOTE_CONTENT_URL = `${REMOTE_API_BASE}/content`;
 const REMOTE_CONTENT_VIEW_URL = `${REMOTE_API_BASE}/content/view`;
 const REMOTE_NOTIFICATION_SEEN_URL = `${REMOTE_API_BASE}/notifications/seen`;
-const REMOTE_SYNC_INTERVAL = 8000;
+const REMOTE_SYNC_INTERVAL = 2000;
 const APP_SCHEMA_VERSION = 2;
 const DEFAULT_THEME = "dark";
 const TEMP_PASSWORD = "Trocar@01";
@@ -693,7 +693,7 @@ function registerContentView(contentId) {
 async function persistContentView(contentId, view) {
   if (!state.session?.id || !contentId || !view) return;
   try {
-    await fetch(REMOTE_CONTENT_VIEW_URL, {
+    const response = await fetch(REMOTE_CONTENT_VIEW_URL, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -705,6 +705,14 @@ async function persistContentView(contentId, view) {
         viewedAt: view.lastViewedAt || new Date().toISOString()
       })
     });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload?.ok) {
+      return;
+    }
+    if (auditContentId && auditContentId === contentId) {
+      renderContentAuditModal(contentId);
+    }
+    void pullRemoteState(true);
   } catch (error) {
     // keep local read stats even if remote endpoint is temporarily unavailable
   }
