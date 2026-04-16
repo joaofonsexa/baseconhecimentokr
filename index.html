@@ -105,6 +105,7 @@
           <button class="nav-link" data-section="explorer">Explorar Conteudos</button>
           <button class="nav-link" data-section="favorites">Favoritos</button>
           <button class="nav-link" data-section="meus-resultados">Meus Resultados</button>
+          <button class="nav-link" data-section="minha-operacao">Minha Operacao</button>
           <button class="nav-link" data-section="admin">Area Administrativa</button>
           <button class="nav-link" data-section="operacional">Painel Operacional</button>
         </nav>
@@ -295,6 +296,32 @@
         </div>
       </section>
 
+      <section id="minha-operacao" class="content-section">
+        <div class="info-grid single">
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Gestao de performance</p>
+                <h3>Minha Operacao</h3>
+              </div>
+            </div>
+            <div id="operation-overview-cards" class="spotlight-stats my-results-cards"></div>
+          </section>
+        </div>
+
+        <div class="info-grid single">
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Visao por operador</p>
+                <h3>Resultados individuais</h3>
+              </div>
+            </div>
+            <div id="operation-by-operator" class="admin-list"></div>
+          </section>
+        </div>
+      </section>
+
         <section id="admin" class="content-section">
           <div class="admin-grid">
           <section class="panel">
@@ -433,6 +460,12 @@
 
               <div class="form-actions">
                 <button class="primary-button" type="submit">Salvar resultados</button>
+              </div>
+
+              <div class="form-actions">
+                <button id="operator-results-download-template" class="ghost-button" type="button">Baixar modelo</button>
+                <button id="operator-results-upload-trigger" class="ghost-button" type="button">Carga por planilha</button>
+                <input id="operator-results-upload-file" type="file" class="hidden" accept=".xlsx,.xls,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv">
               </div>
             </form>
           </section>
@@ -671,7 +704,7 @@
     </article>
   </div>
 
-  <script src="script.js?v=20260416-16"></script>
+  <script src="script.js?v=20260416-18"></script>
 </body>
 </html>
 

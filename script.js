@@ -233,6 +233,8 @@ const elements = {
   favoritesList: document.querySelector("#favorites-list"),
   myResultsCards: document.querySelector("#my-results-cards"),
   myResultsStatus: document.querySelector("#my-results-status"),
+  operationOverviewCards: document.querySelector("#operation-overview-cards"),
+  operationByOperator: document.querySelector("#operation-by-operator"),
   activeFilters: document.querySelector("#active-filters"),
   recentUpdates: document.querySelector("#recent-updates"),
   mostAccessed: document.querySelector("#most-accessed"),
@@ -331,7 +333,10 @@ const elements = {
     effectiveness: document.querySelector("#operator-results-effectiveness"),
     quality: document.querySelector("#operator-results-quality"),
     presence: document.querySelector("#operator-results-presence"),
-    list: document.querySelector("#operator-results-list")
+    list: document.querySelector("#operator-results-list"),
+    downloadTemplate: document.querySelector("#operator-results-download-template"),
+    uploadTrigger: document.querySelector("#operator-results-upload-trigger"),
+    uploadFile: document.querySelector("#operator-results-upload-file")
   }
 };
 
@@ -1252,6 +1257,11 @@ function bindEvents() {
   elements.operatorResults.user?.addEventListener("change", () => {
     hydrateOperatorResultsForm(elements.operatorResults.user.value);
   });
+  elements.operatorResults.downloadTemplate?.addEventListener("click", handleDownloadOperatorResultsTemplate);
+  elements.operatorResults.uploadTrigger?.addEventListener("click", () => {
+    elements.operatorResults.uploadFile?.click();
+  });
+  elements.operatorResults.uploadFile?.addEventListener("change", handleOperatorResultsSpreadsheetUpload);
   elements.cancelUserEdit.addEventListener("click", resetUserForm);
   elements.openContentCreate?.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -1327,7 +1337,7 @@ function setSection(sectionId) {
   saveState();
   elements.navLinks.forEach((item) => item.classList.toggle("active", item.dataset.section === sectionId));
   elements.sectionNodes.forEach((section) => section.classList.toggle("active", section.id === sectionId));
-  elements.globalFilterPanel?.classList.toggle("hidden", ["admin", "operacional", "meus-resultados"].includes(sectionId));
+  elements.globalFilterPanel?.classList.toggle("hidden", ["admin", "operacional", "meus-resultados", "minha-operacao"].includes(sectionId));
   renderAll();
 }
 
@@ -1352,7 +1362,7 @@ function syncAuthView() {
     const allowed = canAccessSection(button.dataset.section);
     button.classList.toggle("hidden", !allowed);
   });
-  elements.globalFilterPanel?.classList.toggle("hidden", ["admin", "operacional", "meus-resultados"].includes(state.section));
+  elements.globalFilterPanel?.classList.toggle("hidden", ["admin", "operacional", "meus-resultados", "minha-operacao"].includes(state.section));
 
   if (!canAccessSection(state.section)) {
     state.section = "explorer";
@@ -1391,7 +1401,7 @@ function canManageContent() {
 function canAccessSection(sectionId) {
   if (!state.session) return false;
   if (sectionId === "content-view-screen") return true;
-  if (["admin", "operacional", "content-editor-screen"].includes(sectionId)) return canManageContent();
+  if (["admin", "operacional", "content-editor-screen", "minha-operacao"].includes(sectionId)) return canManageContent();
   return ["dashboard", "explorer", "favorites", "meus-resultados"].includes(sectionId);
 }
 
@@ -1609,6 +1619,7 @@ function renderAll() {
   renderResults();
   renderFavorites();
   renderMyResults();
+  renderMyOperation();
   renderDetail();
   renderMostAccessed();
   renderRecentUpdates();
@@ -2197,6 +2208,20 @@ function parseMetricInput(value) {
   return Number.isFinite(numeric) ? numeric : null;
 }
 
+function normalizeLooseText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function getOperatorUsers() {
+  return [...state.users]
+    .filter((user) => user && !ACCESS_LEVELS[user.role]?.canEdit)
+    .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "pt-BR"));
+}
+
 function formatMetric(value, options = {}) {
   const suffix = String(options.suffix || "");
   const maxDigits = Number.isFinite(options.maxDigits) ? options.maxDigits : 2;
@@ -2263,6 +2288,79 @@ function renderMyResults() {
   `;
 }
 
+function renderMyOperation() {
+  if (!elements.operationOverviewCards || !elements.operationByOperator) return;
+  if (!canManageContent()) {
+    elements.operationOverviewCards.innerHTML = "";
+    elements.operationByOperator.innerHTML = `<div class="empty-state"><div><p class="eyebrow">Acesso restrito</p><h3>Somente Gestor pode visualizar a operação.</h3></div></div>`;
+    return;
+  }
+
+  const resultsMap = ensureOperatorResultsStore();
+  const operators = [...state.users]
+    .filter((user) => user && !ACCESS_LEVELS[user.role]?.canEdit)
+    .map((user) => ({ user, result: resultsMap[user.id] }))
+    .filter((entry) => entry.result);
+
+  if (!operators.length) {
+    elements.operationOverviewCards.innerHTML = `
+      <article class="metric-card"><span>Operadores com resultado</span><strong>0</strong></article>
+      <article class="metric-card"><span>Producao Total (geral)</span><strong>--</strong></article>
+      <article class="metric-card"><span>Efetividade media</span><strong>--</strong></article>
+      <article class="metric-card"><span>Qualidade media</span><strong>--</strong></article>
+    `;
+    elements.operationByOperator.innerHTML = `<div class="empty-state"><div><p class="eyebrow">Sem dados</p><h3>Nenhum resultado D-1 cadastrado para operadores.</h3></div></div>`;
+    return;
+  }
+
+  const totals = operators.reduce((acc, entry) => {
+    acc.productionTotal += Number(entry.result.productionTotal || 0);
+    acc.effectiveness += Number(entry.result.effectiveness || 0);
+    acc.qualityScore += Number(entry.result.qualityScore || 0);
+    return acc;
+  }, { productionTotal: 0, effectiveness: 0, qualityScore: 0 });
+
+  const count = operators.length;
+  const effectivenessAvg = totals.effectiveness / count;
+  const qualityAvg = totals.qualityScore / count;
+
+  elements.operationOverviewCards.innerHTML = `
+    <article class="metric-card">
+      <span>Operadores com resultado</span>
+      <strong>${count}</strong>
+    </article>
+    <article class="metric-card">
+      <span>Producao Total (geral)</span>
+      <strong>${formatMetric(totals.productionTotal, { maxDigits: 2 })}</strong>
+    </article>
+    <article class="metric-card">
+      <span>Efetividade media</span>
+      <strong>${formatMetric(effectivenessAvg, { suffix: "%", maxDigits: 2 })}</strong>
+    </article>
+    <article class="metric-card">
+      <span>Qualidade media</span>
+      <strong>${formatMetric(qualityAvg, { suffix: "%", maxDigits: 2 })}</strong>
+    </article>
+  `;
+
+  const sorted = operators.sort((a, b) => String(a.user.name || "").localeCompare(String(b.user.name || ""), "pt-BR"));
+  elements.operationByOperator.innerHTML = sorted
+    .map(({ user, result }) => `
+      <article class="admin-item">
+        <div class="admin-item-top">
+          <div>
+            <strong>${escapeHtml(user.name || "Operador")}</strong>
+            <p>${escapeHtml(user.username || "")}</p>
+          </div>
+          <span class="badge manual">${escapeHtml(formatDateTime(result.updatedAt || ""))}</span>
+        </div>
+        <p>Producao: <strong>${escapeHtml(formatMetric(result.productionTotal, { maxDigits: 2 }))}</strong> | Producao Med: <strong>${escapeHtml(formatMetric(result.productionAverage, { maxDigits: 2 }))}</strong></p>
+        <p>Efetividade: <strong>${escapeHtml(formatMetric(result.effectiveness, { suffix: "%", maxDigits: 2 }))}</strong> | Qualidade: <strong>${escapeHtml(formatMetric(result.qualityScore, { suffix: "%", maxDigits: 2 }))}</strong></p>
+      </article>
+    `)
+    .join("");
+}
+
 function renderOperatorResultsAdmin() {
   if (!elements.operatorResults.user || !elements.operatorResults.list) return;
   if (!canManageContent()) {
@@ -2270,9 +2368,7 @@ function renderOperatorResultsAdmin() {
     return;
   }
 
-  const operators = [...state.users]
-    .filter((user) => user && !ACCESS_LEVELS[user.role]?.canEdit)
-    .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "pt-BR"));
+  const operators = getOperatorUsers();
 
   const previousSelected = elements.operatorResults.user.value;
   elements.operatorResults.user.innerHTML = operators.length
@@ -2323,6 +2419,7 @@ function getSectionLabel(sectionId) {
     explorer: "Explorar conteúdos",
     favorites: "Favoritos",
     "meus-resultados": "Meus resultados",
+    "minha-operacao": "Minha operação",
     admin: "Área administrativa",
     operacional: "Painel Operacional",
     "content-view-screen": "Visualização",
@@ -3080,6 +3177,118 @@ async function handleOperatorResultsSubmit(event) {
 
   await saveState({ awaitRemote: true });
   renderAll();
+}
+
+function handleDownloadOperatorResultsTemplate() {
+  if (!canManageContent()) return;
+  if (!window.XLSX) {
+    alert("Biblioteca de planilha indisponivel no momento.");
+    return;
+  }
+
+  const operators = getOperatorUsers();
+  const rows = [
+    ["Nome do Operador", "Usuario", "Efetividade", "Producao", "Qualidade"]
+  ];
+
+  operators.forEach((operator) => {
+    rows.push([
+      operator.name || "",
+      operator.username || "",
+      "",
+      "",
+      ""
+    ]);
+  });
+
+  const worksheet = XLSX.utils.aoa_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "ModeloResultados");
+  XLSX.writeFile(workbook, `modelo-resultados-operadores-${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+async function handleOperatorResultsSpreadsheetUpload(event) {
+  if (!canManageContent()) return;
+  const file = event.target?.files?.[0];
+  if (!file) return;
+  if (!window.XLSX) {
+    alert("Biblioteca de planilha indisponivel no momento.");
+    event.target.value = "";
+    return;
+  }
+
+  try {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: "array" });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, blankrows: false });
+
+    if (!rows.length) {
+      alert("Planilha vazia.");
+      return;
+    }
+
+    const header = rows[0].map((item) => normalizeLooseText(item));
+    const idxName = header.findIndex((item) => ["nome do operador", "nome operador", "nome"].includes(item));
+    const idxUsername = header.findIndex((item) => ["usuario", "login", "username", "user"].includes(item));
+    const idxEffectiveness = header.findIndex((item) => ["efetividade", "efetividade (%)", "efetividade %"].includes(item));
+    const idxProduction = header.findIndex((item) => ["producao", "producao total", "produção", "produção total"].includes(item));
+    const idxQuality = header.findIndex((item) => ["qualidade", "nota de qualidade", "nota qualidade"].includes(item));
+
+    if (idxEffectiveness < 0 || idxProduction < 0 || idxQuality < 0) {
+      alert("A planilha precisa ter as colunas: Efetividade, Producao e Qualidade.");
+      return;
+    }
+
+    const operators = getOperatorUsers();
+    const operatorByUsername = new Map(operators.map((operator) => [normalizeLooseText(operator.username), operator]));
+    const operatorByName = new Map(operators.map((operator) => [normalizeLooseText(operator.name), operator]));
+    const store = ensureOperatorResultsStore();
+    let updatedCount = 0;
+
+    for (let rowIndex = 1; rowIndex < rows.length; rowIndex += 1) {
+      const row = rows[rowIndex] || [];
+      const rowUsername = idxUsername >= 0 ? normalizeLooseText(row[idxUsername]) : "";
+      const rowName = idxName >= 0 ? normalizeLooseText(row[idxName]) : "";
+      const operator = operatorByUsername.get(rowUsername) || operatorByName.get(rowName);
+      if (!operator) continue;
+
+      const effectiveness = parseMetricInput(row[idxEffectiveness]);
+      const productionTotal = parseMetricInput(row[idxProduction]);
+      const qualityScore = parseMetricInput(row[idxQuality]);
+      if (!Number.isFinite(effectiveness) || !Number.isFinite(productionTotal) || !Number.isFinite(qualityScore)) {
+        continue;
+      }
+
+      const previous = getOperatorResult(operator.id) || {};
+      store[operator.id] = {
+        userId: operator.id,
+        productionTotal,
+        productionAverage: Number.isFinite(previous.productionAverage) ? previous.productionAverage : 0,
+        effectiveness,
+        qualityScore,
+        presenceD1: Number.isFinite(previous.presenceD1) ? previous.presenceD1 : 0,
+        updatedAt: new Date().toISOString(),
+        updatedById: state.session?.id || "",
+        updatedByName: state.session?.name || "Gestor"
+      };
+      updatedCount += 1;
+    }
+
+    if (!updatedCount) {
+      alert("Nenhuma linha valida foi encontrada para importar.");
+      return;
+    }
+
+    await saveState({ awaitRemote: true });
+    renderAll();
+    alert(`Carga concluida. ${updatedCount} operador(es) atualizado(s).`);
+  } catch (error) {
+    alert("Nao foi possivel processar a planilha. Confira o formato do arquivo.");
+  } finally {
+    if (event.target) event.target.value = "";
+  }
 }
 
 function populateUserForm(userId) {
