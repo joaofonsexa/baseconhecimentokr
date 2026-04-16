@@ -9,6 +9,7 @@ const REMOTE_API_BASE = "/api";
 const REMOTE_STATE_URL = `${REMOTE_API_BASE}/state`;
 const REMOTE_USERS_URL = `${REMOTE_API_BASE}/users`;
 const REMOTE_CONTENT_URL = `${REMOTE_API_BASE}/content`;
+const REMOTE_CONTENT_VIEW_URL = `${REMOTE_API_BASE}/content/view`;
 const REMOTE_NOTIFICATION_SEEN_URL = `${REMOTE_API_BASE}/notifications/seen`;
 const REMOTE_SYNC_INTERVAL = 8000;
 const APP_SCHEMA_VERSION = 2;
@@ -685,7 +686,28 @@ function registerContentView(contentId) {
     section: state.section
   };
   item.viewStats = currentStats;
+  void persistContentView(contentId, currentStats[state.session.id]);
   return currentStats[state.session.id];
+}
+
+async function persistContentView(contentId, view) {
+  if (!state.session?.id || !contentId || !view) return;
+  try {
+    await fetch(REMOTE_CONTENT_VIEW_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        contentId,
+        userId: state.session.id,
+        name: view.name || state.session.name || "",
+        username: view.username || state.session.username || "",
+        role: view.role || state.session.role || "operador",
+        viewedAt: view.lastViewedAt || new Date().toISOString()
+      })
+    });
+  } catch (error) {
+    // keep local read stats even if remote endpoint is temporarily unavailable
+  }
 }
 
 function loadSession() {

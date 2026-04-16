@@ -234,6 +234,57 @@ async function ensureNotificationReadTable(db) {
     .run();
 }
 
+async function ensureContentViewReadTable(db) {
+  await db
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS content_view_reads (
+        id TEXT PRIMARY KEY,
+        content_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL DEFAULT '',
+        username TEXT NOT NULL DEFAULT '',
+        role TEXT NOT NULL DEFAULT 'operador',
+        first_viewed_at TEXT NOT NULL DEFAULT (datetime('now')),
+        last_viewed_at TEXT NOT NULL DEFAULT (datetime('now')),
+        view_count INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(content_id, user_id)
+      )`
+    )
+    .run();
+}
+
+async function hydrateContentViewStats(db, state) {
+  await ensureContentViewReadTable(db);
+  const rows = await db
+    .prepare("SELECT * FROM content_view_reads ORDER BY updated_at DESC")
+    .all();
+  const byContent = new Map();
+  for (const row of rows.results || []) {
+    if (!row.content_id || !row.user_id) continue;
+    const contentStats = byContent.get(row.content_id) || {};
+    contentStats[row.user_id] = {
+      userId: row.user_id,
+      name: row.name || "",
+      username: row.username || "",
+      role: row.role || "operador",
+      firstViewedAt: row.first_viewed_at || row.created_at || "",
+      lastViewedAt: row.last_viewed_at || row.updated_at || "",
+      count: Number(row.view_count || 1)
+    };
+    byContent.set(row.content_id, contentStats);
+  }
+
+  state.content = Array.isArray(state.content)
+    ? state.content.map((item) => ({
+        ...item,
+        viewStats: byContent.get(item.id) || {}
+      }))
+    : [];
+  return state;
+}
+
 async function hydrateNotificationReads(db, state) {
   await ensureNotificationReadTable(db);
   const rows = await db
@@ -292,6 +343,7 @@ async function buildStateFromTables(db) {
   state.helpCenter = safeParse(settingsRow?.help_center_json || "[]", []);
   state.users = (userRows.results || []).map(userFromRow);
   state.content = (contentRows.results || []).map(contentFromRow);
+  await hydrateContentViewStats(db, state);
   await hydrateAttachments(db, state);
   return hydrateNotificationReads(db, state);
 }
@@ -539,6 +591,47 @@ export default {
           return jsonResponse({ ok: true });
         }
 
+        if (url.pathname === "/api/content/view" && request.method === "POST") {
+          const body = await request.json();
+          const contentId = String(body?.contentId || "").trim();
+          const userId = String(body?.userId || "").trim();
+          const name = String(body?.name || "").trim();
+          const username = String(body?.username || "").trim();
+          const role = String(body?.role || "operador").trim();
+          const viewedAt = String(body?.viewedAt || new Date().toISOString());
+          if (!contentId || !userId) {
+            return jsonResponse({ ok: false, error: "Conteudo e usuario obrigatorios." }, 400);
+          }
+
+          await ensureContentViewReadTable(env.DB);
+          await env.DB
+            .prepare(
+              `INSERT INTO content_view_reads (
+                id, content_id, user_id, name, username, role, first_viewed_at, last_viewed_at, view_count, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))
+              ON CONFLICT(content_id, user_id) DO UPDATE SET
+                name = excluded.name,
+                username = excluded.username,
+                role = excluded.role,
+                last_viewed_at = excluded.last_viewed_at,
+                view_count = content_view_reads.view_count + 1,
+                updated_at = datetime('now')`
+            )
+            .bind(
+              `${contentId}__${userId}`,
+              contentId,
+              userId,
+              name,
+              username,
+              role,
+              viewedAt,
+              viewedAt
+            )
+            .run();
+
+          return jsonResponse({ ok: true });
+        }
+
         if (url.pathname === "/api/content/delete" && request.method === "POST") {
           const body = await request.json();
           const contentId = String(body?.contentId || "").trim();
@@ -555,6 +648,8 @@ export default {
               }
             }
             await env.DB.prepare("DELETE FROM content_files WHERE content_id = ?").bind(contentId).run();
+            await ensureContentViewReadTable(env.DB);
+            await env.DB.prepare("DELETE FROM content_view_reads WHERE content_id = ?").bind(contentId).run();
             return jsonResponse({ ok: true });
           }
 
