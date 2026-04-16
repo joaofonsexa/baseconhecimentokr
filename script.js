@@ -856,6 +856,20 @@ function saveState(options = {}) {
   return Promise.resolve();
 }
 
+async function persistStateToDatabaseOrThrow() {
+  const response = await fetch(REMOTE_STATE_URL, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ state: buildPersistedState() })
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || !payload?.ok) {
+    throw new Error(payload?.error || "Falha ao gravar no banco de dados.");
+  }
+  remoteContentSignature = getSharedContentSignature();
+  remoteSyncPending = false;
+}
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1096,12 +1110,15 @@ async function pushRemoteState(options = {}) {
   const revisionAtStart = remoteChangeRevision;
   remotePushPromise = (async () => {
     try {
-      await fetch(REMOTE_STATE_URL, {
+      const response = await fetch(REMOTE_STATE_URL, {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ state: buildPersistedState() }),
         keepalive: Boolean(options.keepalive)
       });
+      if (!response.ok) {
+        throw new Error("Falha ao sincronizar estado remoto.");
+      }
       if (revisionAtStart === remoteChangeRevision) {
         remoteContentSignature = getSharedContentSignature();
         remoteSyncPending = false;
@@ -1109,7 +1126,7 @@ async function pushRemoteState(options = {}) {
         remoteSyncPending = true;
       }
     } catch (error) {
-      // keep working offline/local if the remote endpoint is unavailable
+      remoteSyncPending = true;
     } finally {
       remotePushInFlight = false;
       remotePushPromise = null;
@@ -2768,13 +2785,46 @@ function renderOperationalPanel() {
     return;
   }
 
-  const allEntries = getPresenceEntries();
+  const presenceEntries = getPresenceEntries();
+  const entryMap = new Map(presenceEntries.map((entry) => [entry.user.id, entry]));
+  const knownUsers = sanitizeUsers(state.users || []).filter((user) => user?.id);
+  knownUsers.forEach((user) => {
+    if (entryMap.has(user.id)) return;
+    entryMap.set(user.id, {
+      user,
+      snapshot: {
+        userId: user.id,
+        name: user.name || "Usuario",
+        username: user.username || "",
+        role: user.role || "operador",
+        section: "",
+        status: "offline",
+        lastSeenAt: "",
+        updatedAt: "",
+        firstSeenAt: ""
+      },
+      isOnline: false,
+      firstSeenAt: 0,
+      lastSeenAt: 0,
+      hasPresence: false
+    });
+  });
+
+  const allEntries = [...entryMap.values()].sort(
+    (a, b) =>
+      Number(b.isOnline) - Number(a.isOnline) ||
+      b.lastSeenAt - a.lastSeenAt ||
+      String(a.user.name || "").localeCompare(String(b.user.name || ""), "pt-BR")
+  );
+
   const entries = allEntries.filter((entry) => {
     if (operationalStatusFilter === "online" && !entry.isOnline) return false;
     if (operationalStatusFilter === "offline" && entry.isOnline) return false;
     if (!operationalQuery) return true;
-    const search = normalizeUsername(entry.user.name);
-    return search.includes(normalizeUsername(operationalQuery));
+    const query = normalizeUsername(operationalQuery);
+    const searchName = normalizeUsername(entry.user.name);
+    const searchUser = normalizeUsername(entry.user.username);
+    return searchName.includes(query) || searchUser.includes(query);
   });
 
   const onlineCount = allEntries.filter((entry) => entry.isOnline).length;
@@ -3298,45 +3348,49 @@ async function handleUserSubmit(event) {
 async function handleOperatorResultsSubmit(event) {
   event.preventDefault();
   if (!canManageContent()) return;
+  try {
+    const userId = String(elements.operatorResults.user?.value || "").trim();
+    const targetUser = state.users.find((item) => item.id === userId);
+    if (!userId || !targetUser) {
+      alert("Selecione um operador valido.");
+      return;
+    }
 
-  const userId = String(elements.operatorResults.user?.value || "").trim();
-  const targetUser = state.users.find((item) => item.id === userId);
-  if (!userId || !targetUser) {
-    alert("Selecione um operador valido.");
-    return;
+    const productionTotal = parseMetricInput(elements.operatorResults.total.value);
+    const resultDate = normalizeDateKey(elements.operatorResults.date.value);
+    const effectiveness = parseMetricInput(elements.operatorResults.effectiveness.value);
+    const qualityScore = parseMetricInput(elements.operatorResults.quality.value);
+
+    if (
+      !resultDate ||
+      !Number.isFinite(productionTotal) ||
+      !Number.isFinite(effectiveness) ||
+      !Number.isFinite(qualityScore)
+    ) {
+      alert("Preencha data, producao, efetividade e qualidade com valores validos.");
+      return;
+    }
+
+    const saved = upsertOperatorDailyResult(userId, {
+      date: resultDate,
+      productionTotal,
+      effectiveness,
+      qualityScore,
+      updatedAt: new Date().toISOString(),
+      updatedById: state.session?.id || "",
+      updatedByName: state.session?.name || "Gestor"
+    });
+    if (!saved) {
+      alert("Nao foi possivel salvar os resultados desse dia.");
+      return;
+    }
+
+    await persistStateToDatabaseOrThrow();
+    await pullRemoteState(true);
+    renderAll();
+  } catch (error) {
+    alert(error?.message || "Falha ao gravar os resultados no banco.");
   }
-
-  const productionTotal = parseMetricInput(elements.operatorResults.total.value);
-  const resultDate = normalizeDateKey(elements.operatorResults.date.value);
-  const effectiveness = parseMetricInput(elements.operatorResults.effectiveness.value);
-  const qualityScore = parseMetricInput(elements.operatorResults.quality.value);
-
-  if (
-    !resultDate ||
-    !Number.isFinite(productionTotal) ||
-    !Number.isFinite(effectiveness) ||
-    !Number.isFinite(qualityScore)
-  ) {
-    alert("Preencha data, producao, efetividade e qualidade com valores validos.");
-    return;
-  }
-
-  const saved = upsertOperatorDailyResult(userId, {
-    date: resultDate,
-    productionTotal,
-    effectiveness,
-    qualityScore,
-    updatedAt: new Date().toISOString(),
-    updatedById: state.session?.id || "",
-    updatedByName: state.session?.name || "Gestor"
-  });
-  if (!saved) {
-    alert("Nao foi possivel salvar os resultados desse dia.");
-    return;
-  }
-
-  await saveState({ awaitRemote: true });
-  renderAll();
 }
 
 function handleDownloadOperatorResultsTemplate() {
@@ -3445,11 +3499,12 @@ async function handleOperatorResultsSpreadsheetUpload(event) {
       return;
     }
 
-    await saveState({ awaitRemote: true });
+    await persistStateToDatabaseOrThrow();
+    await pullRemoteState(true);
     renderAll();
     alert(`Carga concluida. ${updatedCount} operador(es) atualizado(s).`);
   } catch (error) {
-    alert("Nao foi possivel processar a planilha. Confira o formato do arquivo.");
+    alert(error?.message || "Nao foi possivel processar a planilha. Confira o formato do arquivo.");
   } finally {
     if (event.target) event.target.value = "";
   }
