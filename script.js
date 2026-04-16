@@ -591,6 +591,7 @@ function getCurrentPresenceState(extra = {}) {
     role: state.session.role,
     section: state.section,
     contentId: extra.contentId || state.selectedContentId || "",
+    siteHost: window.location.host || "",
     lastSeenAt: now,
     updatedAt: now
   };
@@ -2215,47 +2216,67 @@ function getPresenceStatus(userId) {
 function getPresenceEntries() {
   const now = Date.now();
   const threshold = 60000;
-  ensureSessionUserInState();
-  const users = Array.isArray(state.users) ? [...state.users] : [];
-  if (state.session?.id && !users.some((user) => user?.id === state.session.id)) {
-    users.unshift({
-      id: state.session.id,
-      name: state.session.name || "Usuario",
-      username: state.session.username || "",
-      role: state.session.role || "operador"
+  const currentHost = window.location.host || "";
+  const ledger = state.meta.activePresence && typeof state.meta.activePresence === "object" ? state.meta.activePresence : {};
+  const ledgerEntries = Object.values(ledger).filter((entry) => {
+    if (!entry || !entry.userId) return false;
+    if (!currentHost) return true;
+    return (entry.siteHost || "") === currentHost;
+  });
+  const byUserId = new Map((Array.isArray(state.users) ? state.users : []).filter((user) => user?.id).map((user) => [user.id, user]));
+
+  const materialized = ledgerEntries.map((snapshot) => {
+    const user = byUserId.get(snapshot.userId) || {
+      id: snapshot.userId,
+      name: snapshot.name || "Usuario",
+      username: snapshot.username || "",
+      role: snapshot.role || "operador"
+    };
+    const lastSeenSource = snapshot?.lastSeenAt || snapshot?.updatedAt || snapshot?.firstSeenAt || "";
+    const firstSeenSource = snapshot?.firstSeenAt || snapshot?.lastSeenAt || snapshot?.updatedAt || "";
+    const lastSeen = Date.parse(lastSeenSource);
+    const firstSeen = Date.parse(firstSeenSource);
+    const isRecent = Number.isFinite(lastSeen) && now - lastSeen <= threshold;
+    const isOnline = Boolean(snapshot && snapshot.status !== "offline" && isRecent);
+    return {
+      user,
+      snapshot,
+      isOnline,
+      firstSeenAt: Number.isFinite(firstSeen) ? firstSeen : 0,
+      lastSeenAt: Number.isFinite(lastSeen) ? lastSeen : 0,
+      hasPresence: true
+    };
+  });
+
+  if (state.session?.id && !materialized.some((entry) => entry.user.id === state.session.id)) {
+    const nowIso = new Date().toISOString();
+    materialized.unshift({
+      user: {
+        id: state.session.id,
+        name: state.session.name || "Usuario",
+        username: state.session.username || "",
+        role: state.session.role || "operador"
+      },
+      snapshot: {
+        userId: state.session.id,
+        name: state.session.name || "Usuario",
+        username: state.session.username || "",
+        role: state.session.role || "operador",
+        section: state.section || "explorer",
+        siteHost: currentHost,
+        lastSeenAt: nowIso,
+        updatedAt: nowIso,
+        firstSeenAt: nowIso,
+        status: "online"
+      },
+      isOnline: true,
+      firstSeenAt: Date.parse(nowIso),
+      lastSeenAt: Date.parse(nowIso),
+      hasPresence: true
     });
   }
-  return users
-    .map((user) => {
-      const snapshot = getPresenceSnapshot(user.id) || (state.session?.id === user.id
-        ? {
-            userId: state.session.id,
-            name: state.session.name || "Usuario",
-            username: state.session.username || "",
-            role: state.session.role || "operador",
-            section: state.section || "explorer",
-            lastSeenAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            firstSeenAt: new Date().toISOString(),
-            status: "online"
-          }
-        : null);
-      const lastSeenSource = snapshot?.lastSeenAt || snapshot?.updatedAt || snapshot?.firstSeenAt || "";
-      const firstSeenSource = snapshot?.firstSeenAt || snapshot?.lastSeenAt || snapshot?.updatedAt || "";
-      const lastSeen = Date.parse(lastSeenSource);
-      const firstSeen = Date.parse(firstSeenSource);
-      const isRecent = Number.isFinite(lastSeen) && now - lastSeen <= threshold;
-      const isOnline = Boolean(snapshot && snapshot.status !== "offline" && isRecent);
-      return {
-        user,
-        snapshot,
-        isOnline,
-        firstSeenAt: Number.isFinite(firstSeen) ? firstSeen : 0,
-        lastSeenAt: Number.isFinite(lastSeen) ? lastSeen : 0,
-        hasPresence: Boolean(snapshot)
-      };
-    })
-    .sort((a, b) => Number(b.isOnline) - Number(a.isOnline) || b.lastSeenAt - a.lastSeenAt || a.user.name.localeCompare(b.user.name));
+
+  return materialized.sort((a, b) => Number(b.isOnline) - Number(a.isOnline) || b.lastSeenAt - a.lastSeenAt || a.user.name.localeCompare(b.user.name));
 }
 
 function renderPresencePanel() {
@@ -2267,7 +2288,7 @@ function renderPresencePanel() {
 
     const entries = getPresenceEntries();
     if (!entries.length) {
-      elements.presenceList.innerHTML = `<div class="empty-state"><div><p class="eyebrow">Sem atividade</p><h3>Nenhum usuário cadastrado.</h3></div></div>`;
+      elements.presenceList.innerHTML = `<div class="empty-state"><div><p class="eyebrow">Sem atividade</p><h3>Nenhum usuário com presença registrada.</h3></div></div>`;
       return;
     }
 
@@ -2471,8 +2492,9 @@ function renderContentAuditModal(contentId) {
   }
 }
 
-function openContentAuditModal(contentId) {
+async function openContentAuditModal(contentId) {
   if (!canManageContent()) return;
+  await pullRemoteState(true);
   auditContentId = contentId;
   auditTabFilter = "seen";
   renderContentAuditModal(contentId);
