@@ -48,6 +48,8 @@ function userFromRow(row) {
     username: row.username || "",
     email: row.email || "",
     role: row.role || "operador",
+    lastLoginAt: row.last_login_at || "",
+    updatedAt: row.updated_at || "",
     team: row.team || "",
     accessLevel: row.access_level_name || "",
     permissions: safeParse(row.permissions_json || "[]", []),
@@ -217,6 +219,17 @@ async function ensureContentFilesTable(db) {
       )`
     )
     .run();
+}
+
+async function ensureUserTrackingColumns(db) {
+  try {
+    await db.prepare("ALTER TABLE users ADD COLUMN last_login_at TEXT").run();
+  } catch (error) {
+    const message = String(error?.message || error || "");
+    if (!message.includes("duplicate column name")) {
+      throw error;
+    }
+  }
 }
 
 async function ensureNotificationReadTable(db) {
@@ -539,6 +552,7 @@ async function saveState(db, state) {
 }
 
 async function resolveUsersForLogin(db) {
+  await ensureUserTrackingColumns(db);
   const userRows = await db.prepare("SELECT * FROM users WHERE active = 1 ORDER BY created_at").all();
   return (userRows.results || []).map(userFromRow);
 }
@@ -927,6 +941,16 @@ export default {
             return jsonResponse({ ok: false, error: "Usuario ou senha invalidos." }, 401);
           }
 
+          const nowIso = new Date().toISOString();
+          await env.DB
+            .prepare(
+              `UPDATE users
+               SET last_login_at = ?, updated_at = datetime('now')
+               WHERE id = ?`
+            )
+            .bind(nowIso, user.id)
+            .run();
+
           return jsonResponse({
             ok: true,
             user: {
@@ -935,6 +959,7 @@ export default {
               username: user.username,
               role: user.role,
               accessLevel: user.accessLevel,
+              lastLoginAt: nowIso,
               mustChangePassword: Boolean(user.mustChangePassword)
             }
           });

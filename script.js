@@ -216,6 +216,8 @@ let auditTabFilter = "seen";
 let operationalUserId = "";
 let livePanelTimer = null;
 let lastDetailRenderKey = "";
+let passwordModalResolve = null;
+let passwordModalReason = "";
 
 const elements = {
   appShell: document.querySelector("#app-shell"),
@@ -256,6 +258,14 @@ const elements = {
   operationalUserTime: document.querySelector("#operational-user-time"),
   operationalUserLastLogin: document.querySelector("#operational-user-last-login"),
   operationalUserForceLogout: document.querySelector("#operational-user-force-logout"),
+  passwordModal: document.querySelector("#password-modal"),
+  passwordModalTitle: document.querySelector("#password-modal-title"),
+  passwordModalClose: document.querySelector("#password-modal-close"),
+  passwordModalCancel: document.querySelector("#password-modal-cancel"),
+  passwordModalForm: document.querySelector("#password-modal-form"),
+  passwordModalNew: document.querySelector("#password-modal-new"),
+  passwordModalConfirm: document.querySelector("#password-modal-confirm"),
+  passwordModalError: document.querySelector("#password-modal-error"),
   contentViewStats: document.querySelector("#content-view-stats"),
   contentAuditModal: document.querySelector("#content-audit-modal"),
     contentAuditTitle: document.querySelector("#content-audit-title"),
@@ -444,6 +454,8 @@ function ensureUserRecordInState(user) {
     username: String(user.username || ""),
     email: String(user.email || ""),
     role: String(user.role || "operador"),
+    lastLoginAt: String(user.lastLoginAt || user.last_login_at || ""),
+    updatedAt: String(user.updatedAt || user.updated_at || ""),
     password: String(user.password || ""),
     mustChangePassword: Boolean(user.mustChangePassword),
     active: user.active !== false
@@ -1267,6 +1279,25 @@ function bindEvents() {
     renderOperationalPanel();
   });
   elements.operationalUserForceLogout?.addEventListener("click", handleOperationalForceLogout);
+  elements.passwordModalClose?.addEventListener("click", () => closePasswordModal(null));
+  elements.passwordModalCancel?.addEventListener("click", () => closePasswordModal(null));
+  elements.passwordModal?.addEventListener("click", (event) => {
+    if (event.target === elements.passwordModal) closePasswordModal(null);
+  });
+  elements.passwordModalForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const nextPassword = String(elements.passwordModalNew?.value || "").trim();
+    const confirmPassword = String(elements.passwordModalConfirm?.value || "").trim();
+    if (!nextPassword || nextPassword.length < 6) {
+      if (elements.passwordModalError) elements.passwordModalError.textContent = "A senha precisa ter no minimo 6 caracteres.";
+      return;
+    }
+    if (nextPassword !== confirmPassword) {
+      if (elements.passwordModalError) elements.passwordModalError.textContent = "As senhas nao conferem.";
+      return;
+    }
+    closePasswordModal(nextPassword);
+  });
   elements.operationalSearch?.addEventListener("input", (event) => {
     operationalQuery = String(event.target.value || "").trim();
     renderOperationalPanel();
@@ -1425,7 +1456,7 @@ function canAccessSection(sectionId) {
 }
 
 async function promptForPasswordChange(userId, reasonLabel) {
-  const newPassword = window.prompt(`Precisa ${reasonLabel}. Digite a nova senha:`);
+  const newPassword = await openPasswordModal(reasonLabel);
   if (!newPassword || !newPassword.trim()) {
     return false;
   }
@@ -1473,6 +1504,40 @@ async function promptForPasswordChange(userId, reasonLabel) {
     password: nextPassword,
     mustChangePassword: false
   };
+}
+
+function openPasswordModal(reasonLabel) {
+  if (!elements.passwordModal || !elements.passwordModalForm) {
+    return Promise.resolve(null);
+  }
+  passwordModalReason = String(reasonLabel || "alterar a senha");
+  if (elements.passwordModalTitle) {
+    elements.passwordModalTitle.textContent =
+      passwordModalReason === "trocar a senha no primeiro acesso"
+        ? "Troca obrigatoria de senha"
+        : "Alterar senha";
+  }
+  if (elements.passwordModalError) {
+    elements.passwordModalError.textContent =
+      passwordModalReason === "trocar a senha no primeiro acesso"
+        ? "Para continuar, defina uma nova senha."
+        : "";
+  }
+  elements.passwordModalForm.reset();
+  elements.passwordModal.classList.remove("hidden");
+  elements.passwordModalNew?.focus();
+  return new Promise((resolve) => {
+    passwordModalResolve = resolve;
+  });
+}
+
+function closePasswordModal(value) {
+  if (!elements.passwordModal) return;
+  elements.passwordModal.classList.add("hidden");
+  if (passwordModalResolve) {
+    passwordModalResolve(value || null);
+    passwordModalResolve = null;
+  }
 }
 
 async function forceFirstLoginPasswordChange(user) {
@@ -2865,13 +2930,14 @@ function openOperationalUserModal(userId) {
   if (!entry) return;
   operationalUserId = userId;
   const snapshot = entry.snapshot || {};
-  const lastLoginSource = snapshot.lastSeenAt || snapshot.updatedAt || snapshot.firstSeenAt || "";
-  const lastLoginText = lastLoginSource ? formatDateTime(lastLoginSource) : "Nunca entrou";
+  const userRecord = (state.users || []).find((user) => user && user.id === userId) || {};
+  const lastLoginSource = userRecord.lastLoginAt || userRecord.updatedAt || snapshot.lastSeenAt || snapshot.updatedAt || snapshot.firstSeenAt || "";
+  const lastLoginText = lastLoginSource ? formatDateTime(lastLoginSource) : "Sem registro";
   const elapsed = entry.isOnline
     ? formatDuration(Date.now() - (entry.firstSeenAt || Date.now()))
-    : snapshot?.lastSeenAt || snapshot?.firstSeenAt || snapshot?.updatedAt
-      ? formatDuration(Date.now() - (entry.lastSeenAt || entry.firstSeenAt || Date.now()))
-      : "Nunca entrou";
+    : lastLoginSource
+      ? formatDuration(Date.now() - (Date.parse(lastLoginSource) || Date.now()))
+      : "Sem registro";
 
   elements.operationalUserName.textContent = entry.user.name || "Usuário";
   elements.operationalUserStatus.textContent = entry.isOnline ? "Online" : "Offline";

@@ -595,7 +595,34 @@
     </article>
   </div>
 
-  <script src="script.js?v=20260417-02"></script>
+  <div id="password-modal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <article class="modal-card admin-modal-card">
+      <header class="modal-head">
+        <div>
+          <p class="eyebrow">Senha</p>
+          <h3 id="password-modal-title">Alterar senha</h3>
+        </div>
+        <button id="password-modal-close" class="ghost-button danger" type="button" aria-label="Fechar">X</button>
+      </header>
+      <form id="password-modal-form" class="admin-form">
+        <label>
+          <span>Nova senha</span>
+          <input id="password-modal-new" type="password" minlength="6" required placeholder="Digite a nova senha">
+        </label>
+        <label>
+          <span>Confirmar nova senha</span>
+          <input id="password-modal-confirm" type="password" minlength="6" required placeholder="Confirme a nova senha">
+        </label>
+        <p id="password-modal-error" class="small muted"></p>
+        <div class="form-actions">
+          <button id="password-modal-cancel" class="ghost-button" type="button">Cancelar</button>
+          <button class="primary-button" type="submit">Salvar senha</button>
+        </div>
+      </form>
+    </article>
+  </div>
+
+  <script src="script.js?v=20260417-04"></script>
 </body>
 </html>
 
