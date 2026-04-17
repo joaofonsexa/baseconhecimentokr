@@ -2780,37 +2780,7 @@ function renderOperationalPanel() {
     return;
   }
 
-  const presenceEntries = getPresenceEntries();
-  const entryMap = new Map(presenceEntries.map((entry) => [entry.user.id, entry]));
-  const knownUsers = sanitizeUsers(state.users || []).filter((user) => user?.id);
-  knownUsers.forEach((user) => {
-    if (entryMap.has(user.id)) return;
-    entryMap.set(user.id, {
-      user,
-      snapshot: {
-        userId: user.id,
-        name: user.name || "Usuario",
-        username: user.username || "",
-        role: user.role || "operador",
-        section: "",
-        status: "offline",
-        lastSeenAt: "",
-        updatedAt: "",
-        firstSeenAt: ""
-      },
-      isOnline: false,
-      firstSeenAt: 0,
-      lastSeenAt: 0,
-      hasPresence: false
-    });
-  });
-
-  const allEntries = [...entryMap.values()].sort(
-    (a, b) =>
-      Number(b.isOnline) - Number(a.isOnline) ||
-      b.lastSeenAt - a.lastSeenAt ||
-      String(a.user.name || "").localeCompare(String(b.user.name || ""), "pt-BR")
-  );
+  const allEntries = getOperationalEntries();
 
   const entries = allEntries.filter((entry) => {
     if (operationalStatusFilter === "online" && !entry.isOnline) return false;
@@ -2855,9 +2825,43 @@ function renderOperationalPanel() {
   });
 }
 
+function getOperationalEntries() {
+  const presenceEntries = getPresenceEntries();
+  const entryMap = new Map(presenceEntries.map((entry) => [entry.user.id, entry]));
+  const knownUsers = sanitizeUsers(state.users || []).filter((user) => user?.id);
+  knownUsers.forEach((user) => {
+    if (entryMap.has(user.id)) return;
+    entryMap.set(user.id, {
+      user,
+      snapshot: {
+        userId: user.id,
+        name: user.name || "Usuario",
+        username: user.username || "",
+        role: user.role || "operador",
+        section: "",
+        status: "offline",
+        lastSeenAt: "",
+        updatedAt: "",
+        firstSeenAt: ""
+      },
+      isOnline: false,
+      firstSeenAt: 0,
+      lastSeenAt: 0,
+      hasPresence: false
+    });
+  });
+
+  return [...entryMap.values()].sort(
+    (a, b) =>
+      Number(b.isOnline) - Number(a.isOnline) ||
+      b.lastSeenAt - a.lastSeenAt ||
+      String(a.user.name || "").localeCompare(String(b.user.name || ""), "pt-BR")
+  );
+}
+
 function openOperationalUserModal(userId) {
   if (!canManageContent()) return;
-  const entry = getPresenceEntries().find((item) => item.user.id === userId);
+  const entry = getOperationalEntries().find((item) => item.user.id === userId);
   if (!entry) return;
   operationalUserId = userId;
   const snapshot = entry.snapshot || {};
@@ -2891,7 +2895,7 @@ function closeOperationalUserModal() {
 
 async function handleOperationalForceLogout() {
   if (!canManageContent() || !operationalUserId) return;
-  const entry = getPresenceEntries().find((item) => item.user.id === operationalUserId);
+  const entry = getOperationalEntries().find((item) => item.user.id === operationalUserId);
   if (!entry) return;
   const targetName = entry.user.name || "Usuário";
   const confirmed = window.confirm(`Deseja deslogar ${targetName} da plataforma agora?`);
