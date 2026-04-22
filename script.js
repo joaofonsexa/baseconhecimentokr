@@ -3298,41 +3298,12 @@ function openContentViewModal(contentId) {
   state.selectedContentId = contentId;
   persistCurrentUserViewState();
   item.accessCount += 1;
-  elements.contentViewBody.dataset.contentId = item.id;
-  elements.contentViewTitle.textContent = item.title;
   registerContentView(contentId);
   void markNotificationAsSeen(contentId);
   touchPresence({ contentId });
   saveState();
-  const attachment = buildAttachmentMarkup(normalizeAttachments(item));
-  const bodyLines = Array.isArray(item.body) ? item.body : [];
-  const bodyMarkup = bodyLines.length
-    ? bodyLines.map((block) => {
-        if (block.startsWith("CALL OUT::")) {
-          const [, tone, text] = block.split("::");
-          return `<div class="callout ${tone}">${escapeHtml(text)}</div>`;
-        }
-        if (block.startsWith("- ")) return `<li>${escapeHtml(block.slice(2))}</li>`;
-        return `<p>${escapeHtml(block)}</p>`;
-      }).join("")
-    : `<p>${escapeHtml(item.summary || "Documento sem texto adicional.")}</p>`;
-  const wrappedBody = bodyMarkup.includes("<li>") ? bodyMarkup.replace(/(<li>.*?<\/li>)+/gs, (match) => `<ul>${match}</ul>`) : bodyMarkup;
-  elements.contentViewBody.innerHTML = `
-    <div class="content-view-meta">
-      <span class="filter-pill">${getCategoryName(item.category)}</span>
-      <span class="filter-pill">${getTypeName(item.type)}</span>
-      <span class="filter-pill">${formatDate(item.updatedAt)}</span>
-    </div>
-    <p class="content-view-summary">${escapeHtml(item.summary)}</p>
-    <div class="tag-row">${(item.tags || []).map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join("")}</div>
-    ${attachment}
-    <div class="content-view-copy">
-      ${wrappedBody}
-    </div>
-  `;
-  elements.contentViewEdit.classList.toggle("hidden", !canManageContent());
   elements.contentViewModal?.classList.remove("hidden");
-  void hydrateAttachmentPreviews(elements.contentViewBody);
+  renderDetail();
 }
 
 function closeContentViewModal() {
