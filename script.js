@@ -218,6 +218,7 @@ let livePanelTimer = null;
 let lastDetailRenderKey = "";
 let passwordModalResolve = null;
 let passwordModalReason = "";
+let previousContentSection = "explorer";
 
 const elements = {
   appShell: document.querySelector("#app-shell"),
@@ -3148,15 +3149,8 @@ function updateSummary() {
 function openDetail(contentId) {
   const item = state.content.find((content) => content.id === contentId);
   if (!item) return;
-  state.selectedContentId = contentId;
-  persistCurrentUserViewState();
-  item.accessCount += 1;
-  registerContentView(contentId);
-  void markNotificationAsSeen(contentId);
-  touchPresence({ contentId });
-  saveState();
-  renderDetail();
-  setSection("content-view-screen");
+  previousContentSection = state.section === "content-view-screen" ? (previousContentSection || "explorer") : state.section;
+  openContentViewModal(contentId);
 }
 
 function toggleFavorite(contentId) {
@@ -3280,11 +3274,13 @@ function openContentViewModal(contentId) {
   if (!item) return;
   state.selectedContentId = contentId;
   persistCurrentUserViewState();
+  item.accessCount += 1;
   elements.contentViewBody.dataset.contentId = item.id;
   elements.contentViewTitle.textContent = item.title;
   registerContentView(contentId);
   void markNotificationAsSeen(contentId);
   touchPresence({ contentId });
+  saveState();
   const attachment = buildAttachmentMarkup(normalizeAttachments(item));
   const bodyLines = Array.isArray(item.body) ? item.body : [];
   const bodyMarkup = bodyLines.length
@@ -3322,7 +3318,7 @@ function closeContentViewModal() {
   state.selectedContentId = null;
   persistCurrentUserViewState();
   saveState({ syncRemote: false });
-  setSection("explorer");
+  setSection(canAccessSection(previousContentSection) ? previousContentSection : "explorer");
 }
 
 function populateForm(contentId) {
