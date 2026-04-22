@@ -757,7 +757,7 @@ async function persistContentView(contentId, view) {
 
 function loadSession() {
   try {
-    const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY));
+    const saved = JSON.parse(localStorage.getItem(SESSION_KEY));
     if (!saved || typeof saved !== "object") return null;
     if (!saved.id || !saved.name || !saved.role) return null;
     return {
@@ -793,12 +793,12 @@ function saveStoredTheme(theme) {
 function saveSession(session) {
   try {
     if (session) {
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
     } else {
-      sessionStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(SESSION_KEY);
     }
   } catch (error) {
-    // ignore session storage errors
+    // ignore storage errors
   }
 }
 

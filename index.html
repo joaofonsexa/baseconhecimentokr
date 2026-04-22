@@ -24,7 +24,7 @@
   </style>
   <script>
     try {
-      const savedSession = JSON.parse(sessionStorage.getItem("pulse-kb-session-v1") || "null");
+      const savedSession = JSON.parse(localStorage.getItem("pulse-kb-session-v1") || "null");
       const savedTheme = localStorage.getItem("pulse-kb-theme-v1");
       const theme = savedSession?.theme === "light"
         ? "light"
@@ -40,7 +40,7 @@
 <body data-theme="dark" class="booting">
   <script>
     try {
-      const savedSession = JSON.parse(sessionStorage.getItem("pulse-kb-session-v1") || "null");
+      const savedSession = JSON.parse(localStorage.getItem("pulse-kb-session-v1") || "null");
       const savedTheme = localStorage.getItem("pulse-kb-theme-v1");
       const theme = savedSession?.theme === "light"
         ? "light"
