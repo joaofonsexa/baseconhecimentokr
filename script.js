@@ -600,6 +600,22 @@ function restoreCurrentUserViewState() {
   state.theme = nextTheme;
 }
 
+function getActiveSelectedContentId() {
+  const liveContentId = elements.contentViewBody?.dataset?.contentId || "";
+  if (
+    typeof state.selectedContentId === "string" &&
+    state.selectedContentId &&
+    state.content.some((item) => item.id === state.selectedContentId)
+  ) {
+    return state.selectedContentId;
+  }
+  if (liveContentId && state.content.some((item) => item.id === liveContentId)) {
+    state.selectedContentId = liveContentId;
+    return liveContentId;
+  }
+  return null;
+}
+
 function normalizeContentRecord(content) {
   if (!content || typeof content !== "object") return null;
   return {
@@ -1192,15 +1208,26 @@ async function pullRemoteState(silent = false) {
       return false;
     }
 
-      if (Array.isArray(remoteState.content)) {
-        state.content = normalizeContentCollection(remoteState.content);
-        state.contentHydrated = true;
-      }
+    const localOpenSection = state.section;
+    const localOpenContentId = getActiveSelectedContentId();
+
+    if (Array.isArray(remoteState.content)) {
+      state.content = normalizeContentCollection(remoteState.content);
+      state.contentHydrated = true;
+    }
     state.meta = normalizeMeta(remoteState.meta);
     if (Array.isArray(remoteState.users)) {
       state.users = sanitizeUsers(remoteState.users);
     }
     restoreCurrentUserViewState();
+    if (
+      localOpenSection === "content-view-screen" &&
+      localOpenContentId &&
+      state.content.some((item) => item.id === localOpenContentId)
+    ) {
+      state.section = "content-view-screen";
+      state.selectedContentId = localOpenContentId;
+    }
     if (state.session?.theme) {
       state.theme = state.session.theme;
     }
@@ -2049,7 +2076,8 @@ function renderResults() {
 }
 
 function renderDetail() {
-  const selected = state.content.find((item) => item.id === state.selectedContentId);
+  const selectedContentId = getActiveSelectedContentId();
+  const selected = state.content.find((item) => item.id === selectedContentId);
   if (!selected) {
     lastDetailRenderKey = "";
     delete elements.contentViewBody.dataset.contentId;
