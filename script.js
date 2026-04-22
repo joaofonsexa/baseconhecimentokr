@@ -218,7 +218,6 @@ let livePanelTimer = null;
 let lastDetailRenderKey = "";
 let passwordModalResolve = null;
 let passwordModalReason = "";
-let previousContentSection = "explorer";
 
 const elements = {
   appShell: document.querySelector("#app-shell"),
@@ -307,6 +306,7 @@ const elements = {
   contentViewBody: document.querySelector("#content-view-body"),
   contentViewEdit: document.querySelector("#content-view-edit"),
   backFromContentView: document.querySelector("#back-from-content-view"),
+  contentViewModal: document.querySelector("#content-view-screen"),
   clearFilters: document.querySelector("#clear-filters"),
   toggleHistory: document.querySelector("#toggle-history"),
   contentForm: document.querySelector("#content-form"),
@@ -1220,12 +1220,7 @@ async function pullRemoteState(silent = false) {
       state.users = sanitizeUsers(remoteState.users);
     }
     restoreCurrentUserViewState();
-    if (
-      localOpenSection === "content-view-screen" &&
-      localOpenContentId &&
-      state.content.some((item) => item.id === localOpenContentId)
-    ) {
-      state.section = "content-view-screen";
+    if (localOpenContentId && state.content.some((item) => item.id === localOpenContentId)) {
       state.selectedContentId = localOpenContentId;
     }
     if (state.session?.theme) {
@@ -1365,7 +1360,9 @@ function bindEvents() {
   elements.backFromContentView.addEventListener("click", closeContentViewModal);
   elements.contentViewEdit.addEventListener("click", () => {
     const contentId = elements.contentViewBody.dataset.contentId;
-    if (contentId) populateForm(contentId);
+    if (!contentId) return;
+    elements.contentViewModal?.classList.add("hidden");
+    populateForm(contentId);
   });
 
   elements.globalSearch.addEventListener("input", (event) => {
@@ -1495,7 +1492,6 @@ function canManageContent() {
 
 function canAccessSection(sectionId) {
   if (!state.session) return false;
-  if (sectionId === "content-view-screen") return true;
   if (["admin", "operacional", "content-editor-screen"].includes(sectionId)) return canManageContent();
   return ["dashboard", "explorer", "favorites"].includes(sectionId);
 }
@@ -3177,7 +3173,6 @@ function updateSummary() {
 function openDetail(contentId) {
   const item = state.content.find((content) => content.id === contentId);
   if (!item) return;
-  previousContentSection = state.section === "content-view-screen" ? (previousContentSection || "explorer") : state.section;
   openContentViewModal(contentId);
 }
 
@@ -3336,7 +3331,7 @@ function openContentViewModal(contentId) {
     </div>
   `;
   elements.contentViewEdit.classList.toggle("hidden", !canManageContent());
-  setSection("content-view-screen");
+  elements.contentViewModal?.classList.remove("hidden");
   void hydrateAttachmentPreviews(elements.contentViewBody);
 }
 
@@ -3344,9 +3339,9 @@ function closeContentViewModal() {
   lastDetailRenderKey = "";
   delete elements.contentViewBody.dataset.contentId;
   state.selectedContentId = null;
+  elements.contentViewModal?.classList.add("hidden");
   persistCurrentUserViewState();
   saveState({ syncRemote: false });
-  setSection(canAccessSection(previousContentSection) ? previousContentSection : "explorer");
 }
 
 function populateForm(contentId) {

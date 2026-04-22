@@ -492,24 +492,23 @@
         </div>
       </section>
 
-      <section id="content-view-screen" class="content-section">
-        <div class="info-grid single">
-          <section class="panel editor-screen-panel">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Visualizacao</p>
-                <h3 id="content-view-title">Conteudo</h3>
-              </div>
-              <div class="form-actions">
-                <button id="back-from-content-view" class="ghost-button" type="button">Voltar</button>
-                <button id="content-view-edit" class="primary-button" type="button">Editar</button>
-              </div>
-            </div>
-            <div id="content-view-body" class="content-view-body"></div>
-          </section>
-        </div>
-      </section>
     </main>
+  </div>
+
+  <div id="content-view-screen" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <article class="modal-card content-view-modal-card">
+      <header class="modal-head">
+        <div>
+          <p class="eyebrow">Visualizacao</p>
+          <h3 id="content-view-title">Conteudo</h3>
+        </div>
+        <div class="form-actions">
+          <button id="back-from-content-view" class="ghost-button" type="button">Voltar</button>
+          <button id="content-view-edit" class="primary-button" type="button">Editar</button>
+        </div>
+      </header>
+      <div id="content-view-body" class="content-view-body"></div>
+    </article>
   </div>
 
   <template id="result-template">

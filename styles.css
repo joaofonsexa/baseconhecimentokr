@@ -1433,6 +1433,13 @@ body[data-theme="dark"] .callout.success { color: #b9f0d0; }
   border-color: var(--line);
 }
 
+.content-view-modal-card {
+  width: min(100%, 1180px);
+  max-height: min(92vh, 980px);
+  overflow: auto;
+  border-color: var(--line);
+}
+
 .audit-stats {
   display: flex;
   gap: 10px;
@@ -1820,7 +1827,6 @@ body[data-theme="dark"] .admin-form input[type="file"]::file-selector-button:hov
 .admin-list { max-height: 760px; overflow: auto; padding-right: 4px; }
 
 .content-section.active,
-.content-view-screen.active,
 .content-editor-screen.active {
   animation: page-fade-in 0.18s ease-out;
 }
