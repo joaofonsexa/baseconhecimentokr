@@ -802,6 +802,21 @@ function saveSession(session) {
   }
 }
 
+function clearForcedLogoutForUser(userId) {
+  if (!userId) return false;
+  const forcedLogouts = state.meta?.forcedLogouts && typeof state.meta.forcedLogouts === "object"
+    ? state.meta.forcedLogouts
+    : {};
+  if (!forcedLogouts[userId]) return false;
+  const nextForcedLogouts = { ...forcedLogouts };
+  delete nextForcedLogouts[userId];
+  state.meta = {
+    ...state.meta,
+    forcedLogouts: nextForcedLogouts
+  };
+  return true;
+}
+
 async function fetchRemoteUsers() {
   const response = await fetch(REMOTE_USERS_URL, { cache: "no-store" });
   if (!response.ok) {
@@ -1583,20 +1598,25 @@ async function handleLogin(event) {
       }
     }
 
+    const loginAt =
+      String(user.lastLoginAt || user.last_login_at || "").trim() ||
+      new Date().toISOString();
+    const clearedForcedLogout = clearForcedLogoutForUser(user.id);
+
     elements.loginError.classList.add("hidden");
-      state.session = {
-        id: user.id,
-        name: user.name,
-        role: user.role,
-        username: user.username,
-        mustChangePassword: Boolean(user.mustChangePassword),
-        loginAt: new Date().toISOString(),
-        theme: state.theme || DEFAULT_THEME
-      };
+    state.session = {
+      id: user.id,
+      name: user.name,
+      role: user.role,
+      username: user.username,
+      mustChangePassword: Boolean(user.mustChangePassword),
+      loginAt,
+      theme: state.theme || DEFAULT_THEME
+    };
     ensureSessionUserInState();
     saveSession(state.session);
     touchPresence({ contentId: state.selectedContentId || "" });
-    void saveState();
+    void saveState({ awaitRemote: clearedForcedLogout });
     void pullRemoteState(true);
     requestDesktopNotificationPermission();
     syncAuthView();
