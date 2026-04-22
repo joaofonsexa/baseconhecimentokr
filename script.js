@@ -313,7 +313,8 @@ const elements = {
   operatorResultsForm: document.querySelector("#operator-results-form"),
   cancelUserEdit: document.querySelector("#cancel-user-edit"),
   cancelEdit: document.querySelector("#cancel-edit"),
-  navLinks: Array.from(document.querySelectorAll(".nav-link")),
+  navLinks: Array.from(document.querySelectorAll(".nav-link[data-section]")),
+  externalNavLinks: Array.from(document.querySelectorAll(".nav-link[data-external-nav]")),
   sectionNodes: Array.from(document.querySelectorAll(".content-section")),
   template: document.querySelector("#result-template"),
   form: {
@@ -1412,6 +1413,7 @@ function syncAuthView() {
     const allowed = canAccessSection(button.dataset.section);
     button.classList.toggle("hidden", !allowed);
   });
+  elements.externalNavLinks.forEach((link) => link.classList.remove("hidden"));
   elements.globalFilterPanel?.classList.toggle("hidden", ["admin", "operacional"].includes(state.section));
 
   if (!canAccessSection(state.section)) {
