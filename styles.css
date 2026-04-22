@@ -283,11 +283,15 @@ body.booting .boot-loader {
   border: 1px solid transparent;
   border-radius: 12px;
   background: transparent;
+  display: flex;
+  align-items: center;
   text-align: left;
   padding: 0 12px;
   color: var(--text);
   font-weight: 600;
   font-size: 0.9rem;
+  text-decoration: none;
+  width: 100%;
 }
 
 .nav-link:hover,
