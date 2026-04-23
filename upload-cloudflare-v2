@@ -673,7 +673,7 @@ export default {
                 row.permissions_json,
                 row.password,
                 row.must_change_password,
-                1
+                row.active
               )
               .run();
           } catch (error) {
@@ -690,6 +690,22 @@ export default {
            const users = await resolveUsersForLogin(env.DB);
            return jsonResponse({ ok: true, users });
           }
+
+        if (url.pathname === "/api/users/delete" && request.method === "POST") {
+          const body = await request.json().catch(() => null);
+          const userId = String(body?.userId || "").trim();
+          if (!userId) {
+            return jsonResponse({ ok: false, error: "Usuario invalido." }, 400);
+          }
+
+          await env.DB
+            .prepare("UPDATE users SET active = 0, updated_at = datetime('now') WHERE id = ?")
+            .bind(userId)
+            .run();
+
+          const users = await resolveUsersForLogin(env.DB);
+          return jsonResponse({ ok: true, users });
+        }
 
         if (url.pathname === "/api/content" && request.method === "POST") {
           const body = await request.json();

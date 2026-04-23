@@ -3817,12 +3817,36 @@ async function handleEditUserModalSubmit(event) {
   closeEditUserModal();
 }
 
-function removeUser(userId) {
+async function removeUser(userId) {
   if (!canManageContent()) return;
-  state.users = state.users.filter((item) => item.id !== userId);
+  if (!userId) return;
+
+  const targetUser = state.users.find((item) => item.id === userId);
+  if (!targetUser) return;
+
+  const confirmed = window.confirm(`Deseja excluir o usuário ${targetUser.name || targetUser.username}?`);
+  if (!confirmed) return;
+
+  const response = await fetch(`${REMOTE_API_BASE}/users/delete`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ userId })
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.ok) {
+    alert(result?.error || "Nao foi possivel excluir o usuario.");
+    return;
+  }
+
+  if (Array.isArray(result.users)) {
+    state.users = sanitizeUsers(result.users);
+  } else {
+    state.users = state.users.filter((item) => item.id !== userId);
+  }
+
   const operatorResults = ensureOperatorResultsStore();
   delete operatorResults[userId];
-  void saveState();
+  await saveState({ awaitRemote: true });
   renderAll();
 }
 
