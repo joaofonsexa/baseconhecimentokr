@@ -531,10 +531,18 @@ async function bootstrapRemoteState() {
   }
 
   const needsReset = Number(remoteState.schemaVersion || 0) !== APP_SCHEMA_VERSION;
-  const persistedUsers =
+  let persistedUsers =
     Array.isArray(remoteState.users) && remoteState.users.length
       ? remoteState.users
       : [DEFAULT_PLATFORM_USER];
+  try {
+    const dbUsers = await fetchRemoteUsers();
+    if (Array.isArray(dbUsers) && dbUsers.length) {
+      persistedUsers = dbUsers;
+    }
+  } catch (error) {
+    // keep state fallback when direct users endpoint is unavailable
+  }
     state.schemaVersion = APP_SCHEMA_VERSION;
     state.content = needsReset ? [] : normalizeContentCollection(remoteState.content);
     state.contentHydrated = true;
@@ -1403,6 +1411,14 @@ async function pullRemoteState(silent = false) {
     state.meta = normalizeMeta(remoteState.meta);
     if (Array.isArray(remoteState.users)) {
       state.users = sanitizeUsers(remoteState.users);
+    }
+    try {
+      const dbUsers = await fetchRemoteUsers();
+      if (Array.isArray(dbUsers) && dbUsers.length) {
+        state.users = sanitizeUsers(dbUsers);
+      }
+    } catch (error) {
+      // keep remote state fallback when direct users endpoint is unavailable
     }
     restoreCurrentUserViewState();
     if (localOpenContentId && state.content.some((item) => item.id === localOpenContentId)) {
@@ -3843,6 +3859,14 @@ async function removeUser(userId) {
   } else {
     state.users = state.users.filter((item) => item.id !== userId);
   }
+  try {
+    const dbUsers = await fetchRemoteUsers();
+    if (Array.isArray(dbUsers)) {
+      state.users = sanitizeUsers(dbUsers);
+    }
+  } catch (error) {
+    // keep optimistic state if the refresh endpoint is unavailable
+  }
 
   const operatorResults = ensureOperatorResultsStore();
   delete operatorResults[userId];
@@ -3892,6 +3916,14 @@ async function saveUserPayload(payload) {
     state.users.splice(existingIndex, 1, payload);
   } else {
     state.users.unshift(payload);
+  }
+  try {
+    const dbUsers = await fetchRemoteUsers();
+    if (Array.isArray(dbUsers) && dbUsers.length) {
+      state.users = sanitizeUsers(dbUsers);
+    }
+  } catch (error) {
+    // keep optimistic state if the refresh endpoint is unavailable
   }
 
   if (state.session?.id === payload.id) {
