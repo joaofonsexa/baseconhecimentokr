@@ -3870,7 +3870,11 @@ async function removeUser(userId) {
 
   const operatorResults = ensureOperatorResultsStore();
   delete operatorResults[userId];
-  await saveState({ awaitRemote: true });
+  try {
+    await saveState({ awaitRemote: true });
+  } catch (error) {
+    console.error("Falha ao sincronizar state apos excluir usuario:", error);
+  }
   renderAll();
 }
 
@@ -3931,7 +3935,11 @@ async function saveUserPayload(payload) {
     saveSession(state.session);
   }
 
-  await saveState({ awaitRemote: true });
+  try {
+    await saveState({ awaitRemote: true });
+  } catch (error) {
+    console.error("Falha ao sincronizar state apos salvar usuario:", error);
+  }
   syncAuthView();
   renderAll();
   return true;

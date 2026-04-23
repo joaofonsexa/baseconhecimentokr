@@ -287,6 +287,33 @@ async function ensureOperatorResultsTable(db) {
       )`
     )
     .run();
+  try {
+    await db.prepare("ALTER TABLE operator_results_daily ADD COLUMN updated_by_id TEXT NOT NULL DEFAULT ''").run();
+  } catch (error) {
+    const message = String(error?.message || error || "");
+    if (!message.includes("duplicate column name")) throw error;
+  }
+  try {
+    await db.prepare("ALTER TABLE operator_results_daily ADD COLUMN updated_by_name TEXT NOT NULL DEFAULT ''").run();
+  } catch (error) {
+    const message = String(error?.message || error || "");
+    if (!message.includes("duplicate column name")) throw error;
+  }
+  try {
+    await db.prepare("ALTER TABLE operator_results_daily ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime('now'))").run();
+  } catch (error) {
+    const message = String(error?.message || error || "");
+    if (!message.includes("duplicate column name")) throw error;
+  }
+  try {
+    await db.prepare("ALTER TABLE operator_results_daily ADD COLUMN created_at TEXT NOT NULL DEFAULT (datetime('now'))").run();
+  } catch (error) {
+    const message = String(error?.message || error || "");
+    if (!message.includes("duplicate column name")) throw error;
+  }
+  await db
+    .prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_operator_results_user_date ON operator_results_daily(user_id, result_date)")
+    .run();
 }
 
 function buildOperatorResultRecord(entries, userId) {
