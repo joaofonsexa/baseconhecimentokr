@@ -27,8 +27,6 @@ const ACCESS_LEVELS = {
   operador: { role: "operador", label: "Operador", canEdit: false }
 };
 
-const REMOVED_USERNAMES = new Set(["joao.fonseca", "crislaine.costa"]);
-
 const categories = [
   { id: "scripts", name: "Scripts de Atendimento", description: "Abordagens prontas para abertura, contorno de objecoes e encerramento.", icon: "\u{1F4DE}", tone: "success" },
   { id: "manuals", name: "Manuais e Procedimentos", description: "Passo a passo operacional para tratativas, sistemas e validacoes.", icon: "\u{1F4D8}", tone: "info" },
@@ -438,11 +436,7 @@ function getSharedContentSignature(source = state) {
 }
 
 function sanitizeUsers(users) {
-  return (Array.isArray(users) ? users : []).filter((item) => {
-    const username = normalizeUsername(item?.username);
-    const name = normalizeUsername(item?.name);
-    return !REMOVED_USERNAMES.has(username) && !REMOVED_USERNAMES.has(name);
-  });
+  return Array.isArray(users) ? users.filter((item) => item && item.id) : [];
 }
 
 function ensureSessionUserInState() {
