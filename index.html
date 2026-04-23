@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20260423-01">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     html,
@@ -370,6 +370,15 @@
                 <h3>Acessos liberados pelo gestor</h3>
               </div>
             </div>
+            <label class="search-box user-search-box" for="users-search">
+              <span class="search-icon" aria-hidden="true"></span>
+              <input
+                id="users-search"
+                type="search"
+                placeholder="Pesquisar por nome ou login..."
+                autocomplete="off"
+              >
+            </label>
             <div id="users-list" class="admin-list"></div>
           </section>
         </div>
@@ -624,7 +633,53 @@
     </article>
   </div>
 
-  <script src="script.js?v=20260417-04"></script>
+  <div id="edit-user-modal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <article class="modal-card admin-modal-card user-edit-modal-card">
+      <header class="modal-head">
+        <div>
+          <p class="eyebrow">Usuarios cadastrados</p>
+          <h3>Editar acesso</h3>
+        </div>
+        <button id="edit-user-modal-close" class="ghost-button modal-close-btn" type="button" aria-label="Fechar">X</button>
+      </header>
+      <form id="edit-user-modal-form" class="admin-form">
+        <input id="edit-user-id" type="hidden">
+
+        <label>
+          <span>Nome completo</span>
+          <input id="edit-user-name" type="text" required placeholder="Ex.: Maria Silva">
+        </label>
+
+        <div class="form-grid">
+          <label>
+            <span>Login</span>
+            <input id="edit-user-username" type="text" required placeholder="Ex.: maria.silva">
+          </label>
+
+          <label>
+            <span>Nivel de acesso</span>
+            <select id="edit-user-role" required>
+              <option value="gestor">Gestor - acesso total</option>
+              <option value="operador">Operador - visualizar base</option>
+            </select>
+          </label>
+        </div>
+
+        <label>
+          <span>Senha</span>
+          <input id="edit-user-password" type="text" readonly>
+          <small class="field-help">A senha padrao sera gerada como Trocar@01 e o usuario devera alterar no primeiro acesso.</small>
+        </label>
+
+        <div class="form-actions">
+          <button id="edit-user-modal-cancel" class="ghost-button" type="button">Cancelar</button>
+          <button class="primary-button" type="submit">Salvar alteracoes</button>
+        </div>
+      </form>
+    </article>
+  </div>
+
+  <script src="script.js?v=20260423-02"></script>
 </body>
 </html>
 

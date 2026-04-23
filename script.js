@@ -218,6 +218,8 @@ let livePanelTimer = null;
 let lastDetailRenderKey = "";
 let passwordModalResolve = null;
 let passwordModalReason = "";
+let usersSearchQuery = "";
+let pendingViewRestore = null;
 
 const elements = {
   appShell: document.querySelector("#app-shell"),
@@ -246,6 +248,7 @@ const elements = {
   heroStats: document.querySelector("#hero-stats"),
   adminList: document.querySelector("#admin-list"),
   usersList: document.querySelector("#users-list"),
+  usersSearch: document.querySelector("#users-search"),
   presenceList: document.querySelector("#presence-list"),
   operationalList: document.querySelector("#operational-list"),
   operationalSearch: document.querySelector("#operational-search"),
@@ -266,6 +269,10 @@ const elements = {
   passwordModalNew: document.querySelector("#password-modal-new"),
   passwordModalConfirm: document.querySelector("#password-modal-confirm"),
   passwordModalError: document.querySelector("#password-modal-error"),
+  editUserModal: document.querySelector("#edit-user-modal"),
+  editUserModalClose: document.querySelector("#edit-user-modal-close"),
+  editUserModalCancel: document.querySelector("#edit-user-modal-cancel"),
+  editUserModalForm: document.querySelector("#edit-user-modal-form"),
   contentViewStats: document.querySelector("#content-view-stats"),
   contentAuditModal: document.querySelector("#content-audit-modal"),
     contentAuditTitle: document.querySelector("#content-audit-title"),
@@ -339,6 +346,13 @@ const elements = {
     username: document.querySelector("#user-username"),
     role: document.querySelector("#user-role"),
     password: document.querySelector("#user-password")
+  },
+  editUser: {
+    id: document.querySelector("#edit-user-id"),
+    name: document.querySelector("#edit-user-name"),
+    username: document.querySelector("#edit-user-username"),
+    role: document.querySelector("#edit-user-role"),
+    password: document.querySelector("#edit-user-password")
   },
   operatorResults: {
     user: document.querySelector("#operator-results-user"),
@@ -572,17 +586,19 @@ function persistCurrentUserViewState() {
   state.meta.userViewState = state.meta.userViewState && typeof state.meta.userViewState === "object"
     ? state.meta.userViewState
     : {};
-  state.meta.userViewState[state.session.id] = {
-    section: state.section,
-    selectedContentId: state.selectedContentId || null,
-    theme: state.theme,
-    updatedAt: new Date().toISOString()
-  };
+  const snapshot = buildCurrentUserViewState();
+  state.meta.userViewState[state.session.id] = snapshot;
+  saveStoredUserViewState(state.session.id, snapshot);
 }
 
 function restoreCurrentUserViewState() {
   if (!state.session?.id) return;
-  const savedView = state.meta?.userViewState?.[state.session.id];
+  const localView = loadStoredUserViewState(state.session.id);
+  const remoteView = state.meta?.userViewState?.[state.session.id];
+  const savedView =
+    localView && remoteView
+      ? (Date.parse(localView.updatedAt || 0) >= Date.parse(remoteView.updatedAt || 0) ? localView : remoteView)
+      : (localView || remoteView);
   if (!savedView || typeof savedView !== "object") return;
 
   const nextSection =
@@ -598,6 +614,12 @@ function restoreCurrentUserViewState() {
   state.section = nextSection;
   state.selectedContentId = nextSelectedContentId;
   state.theme = nextTheme;
+  state.query = String(savedView.query || "");
+  state.filters = cloneFilters(savedView.filters);
+  operationalQuery = String(savedView.operationalQuery || "");
+  operationalStatusFilter = String(savedView.operationalStatusFilter || "all");
+  usersSearchQuery = String(savedView.usersSearchQuery || "");
+  pendingViewRestore = savedView;
 }
 
 function getActiveSelectedContentId() {
@@ -614,6 +636,52 @@ function getActiveSelectedContentId() {
     return liveContentId;
   }
   return null;
+}
+
+function applyPendingViewRestore() {
+  if (!pendingViewRestore) return;
+  const snapshot = pendingViewRestore;
+  pendingViewRestore = null;
+
+  if (elements.globalSearch) {
+    elements.globalSearch.value = state.query || "";
+  }
+  if (elements.operationalSearch) {
+    elements.operationalSearch.value = operationalQuery || "";
+  }
+  if (elements.usersSearch) {
+    elements.usersSearch.value = usersSearchQuery || "";
+  }
+  if (elements.historyPanel) {
+    elements.historyPanel.classList.toggle("hidden", !snapshot.historyOpen);
+  }
+  if (elements.contentCreateMenu) {
+    elements.contentCreateMenu.classList.toggle("hidden", !snapshot.contentCreateMenuOpen);
+  }
+
+  applyUserDraft(elements.user, snapshot.drafts?.userForm);
+
+  if (state.section === "content-editor-screen") {
+    applyContentDraft(snapshot.drafts?.contentForm);
+  }
+
+  const modal = snapshot.modal || {};
+  if (modal.contentViewOpen && snapshot.selectedContentId && state.content.some((item) => item.id === snapshot.selectedContentId)) {
+    openContentViewModal(snapshot.selectedContentId, { restoring: true });
+  }
+  if (modal.contentAuditOpen && modal.auditContentId && state.content.some((item) => item.id === modal.auditContentId)) {
+    auditTabFilter = modal.auditTabFilter === "missing" ? "missing" : "seen";
+    renderContentAuditModal(modal.auditContentId);
+    elements.contentAuditModal?.classList.remove("hidden");
+    auditContentId = modal.auditContentId;
+  }
+  if (modal.operationalUserOpen && modal.operationalUserId) {
+    openOperationalUserModal(modal.operationalUserId);
+  }
+  if (modal.editUserOpen && snapshot.drafts?.editUserForm?.id) {
+    openEditUserModal(snapshot.drafts.editUserForm.id);
+    applyUserDraft(elements.editUser, snapshot.drafts.editUserForm);
+  }
 }
 
 function normalizeContentRecord(content) {
@@ -817,6 +885,123 @@ function saveSession(session) {
   } catch (error) {
     // ignore storage errors
   }
+}
+
+function getUserViewStorageKey(userId) {
+  return userId ? `${VIEW_KEY}:${userId}` : VIEW_KEY;
+}
+
+function loadStoredUserViewState(userId) {
+  try {
+    const saved = localStorage.getItem(getUserViewStorageKey(userId));
+    if (!saved) return null;
+    const parsed = JSON.parse(saved);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function saveStoredUserViewState(userId, snapshot) {
+  try {
+    if (!userId) return;
+    localStorage.setItem(getUserViewStorageKey(userId), JSON.stringify(snapshot));
+  } catch (error) {
+    // ignore storage errors
+  }
+}
+
+function cloneFilters(filters) {
+  return {
+    categories: Array.isArray(filters?.categories) ? [...filters.categories] : [],
+    types: Array.isArray(filters?.types) ? [...filters.types] : [],
+    tags: Array.isArray(filters?.tags) ? [...filters.tags] : []
+  };
+}
+
+function serializeContentDraft() {
+  return {
+    id: String(elements.form.id?.value || ""),
+    title: String(elements.form.title?.value || ""),
+    category: String(elements.form.category?.value || ""),
+    type: String(elements.form.type?.value || ""),
+    summary: String(elements.form.summary?.value || ""),
+    tags: String(elements.form.tags?.value || ""),
+    keywords: String(elements.form.keywords?.value || ""),
+    body: String(elements.form.body?.value || ""),
+    featured: Boolean(elements.form.featured?.checked),
+    script: Boolean(elements.form.script?.checked),
+    urgent: Boolean(elements.form.urgent?.checked)
+  };
+}
+
+function applyContentDraft(draft) {
+  if (!draft || typeof draft !== "object") return;
+  if (elements.form.id) elements.form.id.value = String(draft.id || "");
+  if (elements.form.title) elements.form.title.value = String(draft.title || "");
+  if (elements.form.category) elements.form.category.value = String(draft.category || "");
+  if (elements.form.type) elements.form.type.value = String(draft.type || "");
+  if (elements.form.summary) elements.form.summary.value = String(draft.summary || "");
+  if (elements.form.tags) elements.form.tags.value = String(draft.tags || "");
+  if (elements.form.keywords) elements.form.keywords.value = String(draft.keywords || "");
+  if (elements.form.body) elements.form.body.value = String(draft.body || "");
+  if (elements.form.featured) elements.form.featured.checked = Boolean(draft.featured);
+  if (elements.form.script) elements.form.script.checked = Boolean(draft.script);
+  if (elements.form.urgent) elements.form.urgent.checked = Boolean(draft.urgent);
+  elements.contentEditorTitle.textContent = draft.id ? "Editar conteudo" : "Novo conteudo";
+}
+
+function serializeUserDraft(source) {
+  return {
+    id: String(source.id?.value || ""),
+    name: String(source.name?.value || ""),
+    username: String(source.username?.value || ""),
+    role: String(source.role?.value || ""),
+    password: String(source.password?.value || "")
+  };
+}
+
+function applyUserDraft(source, draft) {
+  if (!draft || typeof draft !== "object") return;
+  if (source.id) source.id.value = String(draft.id || "");
+  if (source.name) source.name.value = String(draft.name || "");
+  if (source.username) source.username.value = String(draft.username || "");
+  if (source.role) source.role.value = String(draft.role || "operador");
+  if (source.password) source.password.value = String(draft.password || TEMP_PASSWORD);
+}
+
+function getCurrentOpenModalState() {
+  return {
+    contentViewOpen: Boolean(elements.contentViewModal && !elements.contentViewModal.classList.contains("hidden")),
+    contentAuditOpen: Boolean(elements.contentAuditModal && !elements.contentAuditModal.classList.contains("hidden")),
+    operationalUserOpen: Boolean(elements.operationalUserModal && !elements.operationalUserModal.classList.contains("hidden")),
+    editUserOpen: Boolean(elements.editUserModal && !elements.editUserModal.classList.contains("hidden")),
+    auditContentId: auditContentId || "",
+    auditTabFilter: auditTabFilter || "seen",
+    operationalUserId: operationalUserId || ""
+  };
+}
+
+function buildCurrentUserViewState() {
+  return {
+    section: state.section,
+    selectedContentId: state.selectedContentId || null,
+    theme: state.theme,
+    query: state.query || "",
+    filters: cloneFilters(state.filters),
+    operationalQuery: operationalQuery || "",
+    operationalStatusFilter: operationalStatusFilter || "all",
+    usersSearchQuery: usersSearchQuery || "",
+    historyOpen: Boolean(elements.historyPanel && !elements.historyPanel.classList.contains("hidden")),
+    contentCreateMenuOpen: Boolean(elements.contentCreateMenu && !elements.contentCreateMenu.classList.contains("hidden")),
+    modal: getCurrentOpenModalState(),
+    drafts: {
+      contentForm: serializeContentDraft(),
+      userForm: serializeUserDraft(elements.user),
+      editUserForm: serializeUserDraft(elements.editUser)
+    },
+    updatedAt: new Date().toISOString()
+  };
 }
 
 function clearForcedLogoutForUser(userId) {
@@ -1311,10 +1496,12 @@ function bindEvents() {
   });
   elements.operationalFilterOnline?.addEventListener("click", () => {
     operationalStatusFilter = operationalStatusFilter === "online" ? "all" : "online";
+    persistCurrentUserViewState();
     renderOperationalPanel();
   });
   elements.operationalFilterOffline?.addEventListener("click", () => {
     operationalStatusFilter = operationalStatusFilter === "offline" ? "all" : "offline";
+    persistCurrentUserViewState();
     renderOperationalPanel();
   });
   elements.operationalUserForceLogout?.addEventListener("click", handleOperationalForceLogout);
@@ -1339,6 +1526,7 @@ function bindEvents() {
   });
   elements.operationalSearch?.addEventListener("input", (event) => {
     operationalQuery = String(event.target.value || "").trim();
+    persistCurrentUserViewState();
     renderOperationalPanel();
   });
   elements.userForm.addEventListener("submit", handleUserSubmit);
@@ -1352,6 +1540,14 @@ function bindEvents() {
   });
   elements.operatorResults.uploadFile?.addEventListener("change", handleOperatorResultsSpreadsheetUpload);
   elements.cancelUserEdit.addEventListener("click", resetUserForm);
+  elements.usersSearch?.addEventListener("input", (event) => {
+    usersSearchQuery = String(event.target.value || "").trim().toLowerCase();
+    persistCurrentUserViewState();
+    renderUsersList();
+  });
+  elements.editUserModalClose?.addEventListener("click", closeEditUserModal);
+  elements.editUserModalCancel?.addEventListener("click", closeEditUserModal);
+  elements.editUserModalForm?.addEventListener("submit", handleEditUserModalSubmit);
   elements.openContentCreate?.addEventListener("click", (event) => {
     event.stopPropagation();
     elements.contentCreateMenu?.classList.toggle("hidden");
@@ -1368,17 +1564,20 @@ function bindEvents() {
   elements.globalSearch.addEventListener("input", (event) => {
     state.query = event.target.value.trim();
     if (state.query.length >= 2) saveSearch(state.query);
+    persistCurrentUserViewState();
     if (state.section !== "explorer") setSection("explorer");
     renderAll();
   });
 
   elements.clearFilters.addEventListener("click", () => {
     state.filters = { categories: [], types: [], tags: [] };
+    persistCurrentUserViewState();
     renderAll();
   });
 
   elements.toggleHistory.addEventListener("click", () => {
     elements.historyPanel.classList.toggle("hidden");
+    persistCurrentUserViewState();
     renderHistory();
   });
 
@@ -1391,6 +1590,7 @@ function bindEvents() {
     }
     if (!event.target.closest("#open-content-create") && !event.target.closest("#content-create-menu")) {
       elements.contentCreateMenu.classList.add("hidden");
+      persistCurrentUserViewState();
     }
   });
 
@@ -1399,9 +1599,16 @@ function bindEvents() {
   });
 
   elements.contentForm.addEventListener("submit", handleContentSubmit);
+  elements.contentForm.addEventListener("input", persistCurrentUserViewState);
+  elements.contentForm.addEventListener("change", persistCurrentUserViewState);
+  elements.userForm.addEventListener("input", persistCurrentUserViewState);
+  elements.userForm.addEventListener("change", persistCurrentUserViewState);
+  elements.editUserModalForm?.addEventListener("input", persistCurrentUserViewState);
+  elements.editUserModalForm?.addEventListener("change", persistCurrentUserViewState);
   elements.form.attachment?.addEventListener("change", () => {
     editorAttachments = Array.from(elements.form.attachment.files || []);
     updateAttachmentInfo(editorAttachments);
+    persistCurrentUserViewState();
   });
   elements.cancelEdit.addEventListener("click", () => {
     resetForm();
@@ -1758,6 +1965,7 @@ function renderAll() {
   renderNotifications();
   maybeShowUrgentModal();
   updateSummary();
+  applyPendingViewRestore();
 }
 
 function getNotificationItems() {
@@ -1980,6 +2188,7 @@ function renderChips(container, items, filterKey) {
 function toggleFilter(filterKey, value) {
   const current = state.filters[filterKey];
   state.filters[filterKey] = current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
+  persistCurrentUserViewState();
   renderAll();
 }
 
@@ -2288,7 +2497,13 @@ function renderUsersList() {
     return;
   }
 
-  elements.usersList.innerHTML = state.users
+  const filteredUsers = state.users.filter((user) => {
+    if (!usersSearchQuery) return true;
+    const haystack = `${user.name} ${user.username}`.toLowerCase();
+    return haystack.includes(usersSearchQuery);
+  });
+
+  elements.usersList.innerHTML = filteredUsers
     .map((user) => `
       <article class="admin-item">
         <div class="admin-item-top">
@@ -2303,10 +2518,10 @@ function renderUsersList() {
         </div>
       </article>
     `)
-    .join("");
+    .join("") || `<div class="empty-state"><div><p class="eyebrow">Sem resultados</p><h3>Nenhum usuario encontrado para essa busca.</h3></div></div>`;
 
   document.querySelectorAll("[data-user-edit]").forEach((button) => {
-    button.addEventListener("click", () => populateUserForm(button.dataset.userEdit));
+    button.addEventListener("click", () => openEditUserModal(button.dataset.userEdit));
   });
 
   document.querySelectorAll("[data-user-delete]").forEach((button) => {
@@ -2999,11 +3214,13 @@ function openOperationalUserModal(userId) {
     <p class="mono">Último login: ${escapeHtml(lastLoginText)}</p>
   `;
   elements.operationalUserModal.classList.remove("hidden");
+  persistCurrentUserViewState();
 }
 
 function closeOperationalUserModal() {
   operationalUserId = "";
   elements.operationalUserModal.classList.add("hidden");
+  persistCurrentUserViewState();
 }
 
 async function handleOperationalForceLogout() {
@@ -3082,15 +3299,18 @@ async function openContentAuditModal(contentId) {
   auditTabFilter = "seen";
   renderContentAuditModal(contentId);
   elements.contentAuditModal.classList.remove("hidden");
+  persistCurrentUserViewState();
 }
 
 function closeContentAuditModal() {
   auditContentId = "";
   elements.contentAuditModal.classList.add("hidden");
+  persistCurrentUserViewState();
 }
 
 function setContentAuditTab(tab) {
   auditTabFilter = tab === "missing" ? "missing" : "seen";
+  persistCurrentUserViewState();
   if (auditContentId) {
     renderContentAuditModal(auditContentId);
   }
@@ -3286,23 +3506,28 @@ function openCreateContentModal(kind = "") {
   elements.contentCreateMenu.classList.add("hidden");
   elements.contentEditorTitle.textContent = "Novo conteudo";
   setSection("content-editor-screen");
+  persistCurrentUserViewState();
 }
 
 function closeContentModal() {
   setSection("admin");
 }
 
-function openContentViewModal(contentId) {
+function openContentViewModal(contentId, options = {}) {
+  const restoring = options.restoring === true;
   const item = state.content.find((content) => content.id === contentId);
   if (!item) return;
   state.selectedContentId = contentId;
   persistCurrentUserViewState();
-  item.accessCount += 1;
-  registerContentView(contentId);
-  void markNotificationAsSeen(contentId);
-  touchPresence({ contentId });
-  saveState();
+  if (!restoring) {
+    item.accessCount += 1;
+    registerContentView(contentId);
+    void markNotificationAsSeen(contentId);
+    touchPresence({ contentId });
+    saveState();
+  }
   elements.contentViewModal?.classList.remove("hidden");
+  persistCurrentUserViewState();
   renderDetail();
 }
 
@@ -3369,57 +3594,14 @@ function applyCreateTemplate(kind) {
 async function handleUserSubmit(event) {
   event.preventDefault();
   if (!canManageContent()) return;
-
-  const existingIndex = state.users.findIndex((item) => item.id === elements.user.id.value);
-  const existingUser = existingIndex >= 0 ? state.users[existingIndex] : null;
-
-  const payload = {
-    id: elements.user.id.value || crypto.randomUUID(),
-    name: elements.user.name.value.trim(),
-    username: normalizeUsername(elements.user.username.value),
-    role: elements.user.role.value,
-    password: existingUser?.password || TEMP_PASSWORD,
-    mustChangePassword: existingUser ? Boolean(existingUser.mustChangePassword) : true
-  };
+  const payload = buildUserPayload(elements.user);
 
   if (!payload.name || !payload.username) {
     return;
   }
-
-  const duplicated = state.users.find((item) => item.username === payload.username && item.id !== payload.id);
-  if (duplicated) {
-    alert("Ja existe um usuario com esse login.");
-    return;
-  }
-
-  const response = await fetch(REMOTE_USERS_URL, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-  const result = await response.json().catch(() => null);
-  if (!response.ok || !result?.ok) {
-    alert(result?.error || "Nao foi possivel salvar o usuario.");
-    return;
-  }
-
-  if (Array.isArray(result.users)) {
-    state.users = sanitizeUsers(result.users);
-  } else if (existingIndex >= 0) {
-    state.users.splice(existingIndex, 1, payload);
-  } else {
-    state.users.unshift(payload);
-  }
-
-  if (state.session?.id === payload.id) {
-    state.session = { ...state.session, role: payload.role, username: payload.username };
-    saveSession(state.session);
-  }
-
-  await saveState({ awaitRemote: true });
+  const saved = await saveUserPayload(payload);
+  if (!saved) return;
   resetUserForm();
-  syncAuthView();
-  renderAll();
 }
 
 async function handleOperatorResultsSubmit(event) {
@@ -3603,6 +3785,38 @@ function resetUserForm() {
   elements.user.id.value = "";
 }
 
+function openEditUserModal(userId) {
+  if (!canManageContent()) return;
+  const user = state.users.find((item) => item.id === userId);
+  if (!user) return;
+  elements.editUser.id.value = user.id;
+  elements.editUser.name.value = user.name;
+  elements.editUser.username.value = user.username;
+  elements.editUser.role.value = user.role;
+  elements.editUser.password.value = user.password || TEMP_PASSWORD;
+  elements.editUserModal?.classList.remove("hidden");
+  persistCurrentUserViewState();
+}
+
+function closeEditUserModal() {
+  elements.editUserModal?.classList.add("hidden");
+  elements.editUserModalForm?.reset();
+  elements.editUser.id.value = "";
+  persistCurrentUserViewState();
+}
+
+async function handleEditUserModalSubmit(event) {
+  event.preventDefault();
+  if (!canManageContent()) return;
+  const payload = buildUserPayload(elements.editUser);
+  if (!payload.name || !payload.username) {
+    return;
+  }
+  const saved = await saveUserPayload(payload);
+  if (!saved) return;
+  closeEditUserModal();
+}
+
 function removeUser(userId) {
   if (!canManageContent()) return;
   state.users = state.users.filter((item) => item.id !== userId);
@@ -3614,6 +3828,57 @@ function removeUser(userId) {
 
 function normalizeUsername(value) {
   return String(value || "").trim().toLowerCase();
+}
+
+function buildUserPayload(source) {
+  const currentId = source.id.value || crypto.randomUUID();
+  const existingUser = state.users.find((item) => item.id === currentId);
+  return {
+    id: currentId,
+    name: source.name.value.trim(),
+    username: normalizeUsername(source.username.value),
+    role: source.role.value,
+    password: existingUser?.password || TEMP_PASSWORD,
+    mustChangePassword: existingUser ? Boolean(existingUser.mustChangePassword) : true
+  };
+}
+
+async function saveUserPayload(payload) {
+  const existingIndex = state.users.findIndex((item) => item.id === payload.id);
+  const duplicated = state.users.find((item) => item.username === payload.username && item.id !== payload.id);
+  if (duplicated) {
+    alert("Ja existe um usuario com esse login.");
+    return false;
+  }
+
+  const response = await fetch(REMOTE_USERS_URL, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.ok) {
+    alert(result?.error || "Nao foi possivel salvar o usuario.");
+    return false;
+  }
+
+  if (Array.isArray(result.users)) {
+    state.users = sanitizeUsers(result.users);
+  } else if (existingIndex >= 0) {
+    state.users.splice(existingIndex, 1, payload);
+  } else {
+    state.users.unshift(payload);
+  }
+
+  if (state.session?.id === payload.id) {
+    state.session = { ...state.session, role: payload.role, username: payload.username };
+    saveSession(state.session);
+  }
+
+  await saveState({ awaitRemote: true });
+  syncAuthView();
+  renderAll();
+  return true;
 }
 
 function getInitials(name) {

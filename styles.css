@@ -1166,6 +1166,7 @@ body[data-theme="dark"] .theme-moon {
 }
 .panel { padding: 22px; }
 .list-stack, .results-list, .admin-list { display: grid; gap: 14px; }
+.user-search-box { margin-bottom: 16px; }
 
 .list-item, .admin-item {
   display: grid;
@@ -1431,6 +1432,10 @@ body[data-theme="dark"] .callout.success { color: #b9f0d0; }
   max-height: min(92vh, 920px);
   overflow: auto;
   border-color: var(--line);
+}
+
+.user-edit-modal-card {
+  width: min(100%, 680px);
 }
 
 .content-view-modal-card {
