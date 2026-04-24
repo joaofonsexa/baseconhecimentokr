@@ -342,6 +342,8 @@ const elements = {
     id: document.querySelector("#user-id"),
     name: document.querySelector("#user-name"),
     username: document.querySelector("#user-username"),
+    username0800: document.querySelector("#user-username-0800"),
+    usernameNuvidio: document.querySelector("#user-username-nuvidio"),
     role: document.querySelector("#user-role"),
     password: document.querySelector("#user-password")
   },
@@ -349,6 +351,8 @@ const elements = {
     id: document.querySelector("#edit-user-id"),
     name: document.querySelector("#edit-user-name"),
     username: document.querySelector("#edit-user-username"),
+    username0800: document.querySelector("#edit-user-username-0800"),
+    usernameNuvidio: document.querySelector("#edit-user-username-nuvidio"),
     role: document.querySelector("#edit-user-role"),
     password: document.querySelector("#edit-user-password")
   },
@@ -462,11 +466,12 @@ function ensureUserRecordInState(user) {
     id: String(user.id),
     name: String(user.name || "Usuario"),
     username: String(user.username || ""),
+    username_0800: String(user.username_0800 || user.username0800 || ""),
+    username_nuvidio: String(user.username_nuvidio || user.usernameNuvidio || ""),
     email: String(user.email || ""),
     role: String(user.role || "operador"),
     lastLoginAt: String(user.lastLoginAt || user.last_login_at || ""),
     updatedAt: String(user.updatedAt || user.updated_at || ""),
-    password: String(user.password || ""),
     mustChangePassword: Boolean(user.mustChangePassword),
     active: user.active !== false
   };
@@ -958,6 +963,8 @@ function serializeUserDraft(source) {
     id: String(source.id?.value || ""),
     name: String(source.name?.value || ""),
     username: String(source.username?.value || ""),
+    username0800: String(source.username0800?.value || ""),
+    usernameNuvidio: String(source.usernameNuvidio?.value || ""),
     role: String(source.role?.value || ""),
     password: String(source.password?.value || "")
   };
@@ -968,6 +975,8 @@ function applyUserDraft(source, draft) {
   if (source.id) source.id.value = String(draft.id || "");
   if (source.name) source.name.value = String(draft.name || "");
   if (source.username) source.username.value = String(draft.username || "");
+  if (source.username0800) source.username0800.value = String(draft.username0800 || draft.username_0800 || "");
+  if (source.usernameNuvidio) source.usernameNuvidio.value = String(draft.usernameNuvidio || draft.username_nuvidio || "");
   if (source.role) source.role.value = String(draft.role || "operador");
   if (source.password) source.password.value = String(draft.password || TEMP_PASSWORD);
 }
@@ -1748,11 +1757,15 @@ async function promptForPasswordChange(userId, reasonLabel) {
     await saveState({ awaitRemote: true });
     await pullRemoteState(true);
     const refreshedUser = await refreshUserFromRemote(userId);
-    if (!refreshedUser || String(refreshedUser.password || "") !== nextPassword || refreshedUser.mustChangePassword) {
+    if (!refreshedUser || refreshedUser.mustChangePassword) {
       throw new Error("Nao foi possivel alterar a senha no banco de dados.");
     }
     ensureUserRecordInState(refreshedUser);
-    return refreshedUser;
+    return {
+      ...refreshedUser,
+      password: nextPassword,
+      mustChangePassword: false
+    };
   }
 
   void saveState();
@@ -3786,8 +3799,10 @@ function populateUserForm(userId) {
   elements.user.id.value = user.id;
   elements.user.name.value = user.name;
   elements.user.username.value = user.username;
+  if (elements.user.username0800) elements.user.username0800.value = user.username_0800 || "";
+  if (elements.user.usernameNuvidio) elements.user.usernameNuvidio.value = user.username_nuvidio || "";
   elements.user.role.value = user.role;
-  elements.user.password.value = user.password;
+  elements.user.password.value = TEMP_PASSWORD;
 }
 
 function resetUserForm() {
@@ -3802,8 +3817,10 @@ function openEditUserModal(userId) {
   elements.editUser.id.value = user.id;
   elements.editUser.name.value = user.name;
   elements.editUser.username.value = user.username;
+  if (elements.editUser.username0800) elements.editUser.username0800.value = user.username_0800 || "";
+  if (elements.editUser.usernameNuvidio) elements.editUser.usernameNuvidio.value = user.username_nuvidio || "";
   elements.editUser.role.value = user.role;
-  elements.editUser.password.value = user.password || TEMP_PASSWORD;
+  elements.editUser.password.value = TEMP_PASSWORD;
   elements.editUserModal?.classList.remove("hidden");
   persistCurrentUserViewState();
 }
@@ -3883,8 +3900,10 @@ function buildUserPayload(source) {
     id: currentId,
     name: source.name.value.trim(),
     username: normalizeUsername(source.username.value),
+    username_0800: String(source.username0800?.value || "").trim(),
+    username_nuvidio: String(source.usernameNuvidio?.value || "").trim(),
     role: source.role.value,
-    password: existingUser?.password || TEMP_PASSWORD,
+    password: String(source.password?.value || existingUser?.password || TEMP_PASSWORD),
     mustChangePassword: existingUser ? Boolean(existingUser.mustChangePassword) : true
   };
 }

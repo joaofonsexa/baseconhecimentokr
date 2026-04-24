@@ -46,6 +46,8 @@ function userFromRow(row) {
     id: row.id,
     name: row.name || "",
     username: row.username || "",
+    username_0800: row.username_0800 || "",
+    username_nuvidio: row.username_nuvidio || "",
     email: row.email || "",
     role: row.role || "operador",
     lastLoginAt: row.last_login_at || "",
@@ -53,7 +55,6 @@ function userFromRow(row) {
     team: row.team || "",
     accessLevel: row.access_level_name || "",
     permissions: safeParse(row.permissions_json || "[]", []),
-    password: row.password || "",
     mustChangePassword: Boolean(row.must_change_password),
     active: Boolean(row.active)
   };
@@ -139,6 +140,8 @@ function userToRow(user) {
     id: String(user?.id || ""),
     name: String(user?.name || ""),
     username,
+    username_0800: String(user?.username_0800 || user?.username0800 || ""),
+    username_nuvidio: String(user?.username_nuvidio || user?.usernameNuvidio || ""),
     email: safeEmail,
     role: String(user?.role || "operador"),
     team: String(user?.team || ""),
@@ -224,6 +227,22 @@ async function ensureContentFilesTable(db) {
 async function ensureUserTrackingColumns(db) {
   try {
     await db.prepare("ALTER TABLE users ADD COLUMN last_login_at TEXT").run();
+  } catch (error) {
+    const message = String(error?.message || error || "");
+    if (!message.includes("duplicate column name")) {
+      throw error;
+    }
+  }
+  try {
+    await db.prepare("ALTER TABLE users ADD COLUMN username_0800 TEXT").run();
+  } catch (error) {
+    const message = String(error?.message || error || "");
+    if (!message.includes("duplicate column name")) {
+      throw error;
+    }
+  }
+  try {
+    await db.prepare("ALTER TABLE users ADD COLUMN username_nuvidio TEXT").run();
   } catch (error) {
     const message = String(error?.message || error || "");
     if (!message.includes("duplicate column name")) {
@@ -584,6 +603,12 @@ async function resolveUsersForLogin(db) {
   return (userRows.results || []).map(userFromRow);
 }
 
+async function resolveUsersForAuth(db) {
+  await ensureUserTrackingColumns(db);
+  const userRows = await db.prepare("SELECT * FROM users WHERE active = 1 ORDER BY created_at").all();
+  return userRows.results || [];
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -671,14 +696,25 @@ export default {
               .bind(normalizedUsername)
               .first();
             const targetId = String(existingByUsername?.id || row.id);
+            const existingUser = await env.DB
+              .prepare("SELECT password, must_change_password FROM users WHERE id = ? LIMIT 1")
+              .bind(targetId)
+              .first();
+            const effectivePassword = String(row.password || existingUser?.password || "");
+            const effectiveMustChangePassword =
+              row.password
+                ? row.must_change_password
+                : Number(existingUser?.must_change_password ?? row.must_change_password ?? 0);
             await env.DB
               .prepare(
                 `INSERT INTO users (
-                  id, name, username, email, role, team, access_level_name, permissions_json, password, must_change_password, active, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+                  id, name, username, username_0800, username_nuvidio, email, role, team, access_level_name, permissions_json, password, must_change_password, active, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
                 ON CONFLICT(id) DO UPDATE SET
                   name = excluded.name,
                   username = excluded.username,
+                  username_0800 = excluded.username_0800,
+                  username_nuvidio = excluded.username_nuvidio,
                   email = excluded.email,
                   role = excluded.role,
                   team = excluded.team,
@@ -693,13 +729,15 @@ export default {
                 targetId,
                 row.name,
                 row.username,
+                row.username_0800,
+                row.username_nuvidio,
                 row.email,
                 row.role,
                 row.team,
                 row.access_level_name,
                 row.permissions_json,
-                row.password,
-                row.must_change_password,
+                effectivePassword,
+                effectiveMustChangePassword,
                 row.active
               )
               .run();
@@ -978,7 +1016,7 @@ export default {
             return jsonResponse({ ok: false, error: "Usuario e senha obrigatorios." }, 400);
           }
 
-          const users = await resolveUsersForLogin(env.DB);
+          const users = await resolveUsersForAuth(env.DB);
           const user = users.find((item) => String(item.username || "").trim().toLowerCase() === username || String(item.email || "").trim().toLowerCase() === username);
           if (!user || String(user.password || "") !== password) {
             return jsonResponse({ ok: false, error: "Usuario ou senha invalidos." }, 401);
