@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PORTAL DE RESULTADOS DO OPERADOR</title>
+  <title>CENTRAL DO OPERADOR</title>
   <meta
     name="description"
-    content="Portal de resultados do operador com autenticação compartilhada com a Central do Operador."
+    content="Base de conhecimento para operadores de call center com busca instantanea, scripts, procedimentos, FAQ, informativos e painel administrativo."
   >
   <link rel="icon" type="image/png" href="logos_KR-02.png">
-  <link rel="shortcut icon" type="image/png" href="logos_KR-02.png">
+  <link rel="shortcut icon" href="logos_KR-02.png">
   <link rel="apple-touch-icon" href="logos_KR-02.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20260423-01">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     html,
@@ -27,8 +27,8 @@
   </style>
   <script>
     try {
-      const savedSession = JSON.parse(sessionStorage.getItem("operator-results-session-v1") || "null");
-      const savedTheme = localStorage.getItem("operator-results-theme-v1");
+      const savedSession = JSON.parse(localStorage.getItem("pulse-kb-session-v1") || "null");
+      const savedTheme = localStorage.getItem("pulse-kb-theme-v1");
       const theme = savedSession?.theme === "light"
         ? "light"
         : savedSession?.theme === "dark"
@@ -43,8 +43,8 @@
 <body data-theme="dark" class="booting">
   <script>
     try {
-      const savedSession = JSON.parse(sessionStorage.getItem("operator-results-session-v1") || "null");
-      const savedTheme = localStorage.getItem("operator-results-theme-v1");
+      const savedSession = JSON.parse(localStorage.getItem("pulse-kb-session-v1") || "null");
+      const savedTheme = localStorage.getItem("pulse-kb-theme-v1");
       const theme = savedSession?.theme === "light"
         ? "light"
         : savedSession?.theme === "dark"
@@ -56,12 +56,11 @@
       document.documentElement.style.colorScheme = theme;
     } catch (error) {}
   </script>
-
   <div id="boot-loader" class="boot-loader" aria-live="polite" aria-busy="true">
     <div class="boot-loader-card">
       <span class="boot-spinner" aria-hidden="true"></span>
-      <strong>Carregando portal...</strong>
-      <p>Preparando seus indicadores.</p>
+      <strong>Carregando...</strong>
+      <p>Preparando a base de conhecimento.</p>
     </div>
   </div>
 
@@ -72,15 +71,14 @@
           <img src="logos_KR-02.png" alt="KR Consulting &amp; Services">
         </div>
         <div>
-          <h1>PORTAL DE RESULTADOS</h1>
-          <p class="login-helper">Use o mesmo usuário e senha da sua Central do Operador.</p>
+          <h1>CENTRAL DO OPERADOR</h1>
         </div>
       </div>
 
       <form id="login-form" class="login-form">
         <label>
-          <span>Usuário</span>
-          <input id="login-username" type="text" placeholder="Digite seu usuário" required>
+          <span>Usuario</span>
+          <input id="login-username" type="text" placeholder="Digite seu usuario" required>
         </label>
 
         <label>
@@ -88,27 +86,10 @@
           <input id="login-password" type="password" placeholder="Digite sua senha" required>
         </label>
 
-        <p id="login-error" class="login-error hidden">Usuário ou senha inválidos.</p>
+        <p id="login-error" class="login-error hidden">Credenciais invalidas. Verifique perfil e senha.</p>
 
         <button class="primary-button" type="submit">Entrar</button>
       </form>
-    </div>
-  </section>
-
-  <section id="maintenance-screen" class="login-screen hidden">
-    <div class="login-card maintenance-card">
-      <div class="login-brand">
-        <div class="brand-mark brand-logo-shell">
-          <img src="logos_KR-02.png" alt="KR Consulting &amp; Services">
-        </div>
-        <div>
-          <h1>SISTEMA EM MANUTENCAO</h1>
-          <p id="maintenance-copy" class="login-helper">O portal esta temporariamente indisponivel. Tente novamente em alguns minutos.</p>
-        </div>
-      </div>
-      <div class="form-actions">
-        <button id="maintenance-logout-button" class="ghost-button" type="button">Sair</button>
-      </div>
     </div>
   </section>
 
@@ -119,32 +100,48 @@
           <img src="logos_KR-02.png" alt="KR Consulting &amp; Services">
         </div>
         <div>
-          <h1>PORTAL DE RESULTADOS</h1>
-          <p class="brand-kicker">Visao individual do operador</p>
+          <h1>CENTRAL DO OPERADOR</h1>
         </div>
       </div>
 
-      <nav class="sidebar-nav">
-        <button class="nav-link active" data-section="dashboard" type="button">Visao Geral</button>
-        <button class="nav-link" data-section="dashboard-analytics" type="button">Analises</button>
-        <button class="nav-link" data-section="history" type="button">Historico</button>
-        <button id="admin-nav-link" class="nav-link hidden" data-section="admin" type="button">Gestao</button>
-      </nav>
+        <nav class="sidebar-nav">
+          <button class="nav-link" data-section="explorer">Explorar Conteudos</button>
+          <button class="nav-link" data-section="favorites">Favoritos</button>
+          <button class="nav-link" data-section="admin">Area Administrativa</button>
+          <button class="nav-link" data-section="operacional">Painel Operacional</button>
+          <a class="nav-link" data-external-nav="portal-resultados" href="https://meusresultadoskr.pages.dev/" target="_blank" rel="noopener">
+            Portal de Resultados
+          </a>
+        </nav>
+
     </aside>
 
     <main class="main-content">
       <header class="hero-header">
-        <div class="hero-search hero-search-full hero-search-static">
+        <div class="hero-search hero-search-full">
           <div class="top-utility-bar">
+            <div class="search-top-label">
+              <span class="eyebrow">Filtros</span>
+            </div>
             <div class="top-utility-actions">
-              <label id="global-operator-filter" class="global-operator-filter hidden">
-                <span>Operador</span>
-                <select id="global-operator-select"></select>
-              </label>
+              <div class="notification-menu">
+                <button id="notification-trigger" class="icon-button notification-button" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Notificacoes">
+                  <span aria-hidden="true">&#128276;</span>
+                  <span id="notification-badge" class="notification-badge hidden">0</span>
+                </button>
 
-              <button id="refresh-button" class="icon-button icon-button-wide" type="button" aria-label="Atualizar resultados">
+                <div id="notification-dropdown" class="profile-dropdown notification-dropdown hidden" role="menu">
+                  <div class="profile-dropdown-head">
+                    <strong>Comunicados</strong>
+                    <span id="notification-summary">Nenhum comunicado novo</span>
+                  </div>
+                  <div id="notification-list" class="notification-list"></div>
+                </div>
+              </div>
+
+              <button id="toggle-history" class="icon-button icon-button-wide" type="button" aria-label="Historico de buscas">
                 <span aria-hidden="true">&#8635;</span>
-                <span>Atualizar</span>
+                <span>Historico</span>
               </button>
 
               <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Alternar tema">
@@ -154,322 +151,229 @@
 
               <div class="profile-menu">
                 <button id="profile-trigger" class="profile-pill" type="button" aria-haspopup="menu" aria-expanded="false">
-                  <span class="profile-avatar" id="profile-avatar">OP</span>
+                  <span class="profile-avatar" id="profile-avatar">AK</span>
                   <span class="profile-info">
-                    <strong id="session-name">Operador</strong>
+                    <strong id="session-name">Usuario</strong>
                     <span id="session-role" class="session-role">Operador</span>
                   </span>
                 </button>
 
                 <div id="profile-dropdown" class="profile-dropdown hidden" role="menu">
                   <div class="profile-dropdown-head">
-                    <strong id="session-name-menu">Operador</strong>
+                    <strong id="session-name-menu">Usuario</strong>
                     <span id="session-role-menu">Operador</span>
                   </div>
+                  <button id="reset-password-button" class="profile-dropdown-item" type="button" role="menuitem">Reset de senha</button>
                   <button id="logout-button" class="profile-dropdown-item danger" type="button" role="menuitem">Logout</button>
                 </div>
               </div>
             </div>
           </div>
 
-          <div class="portal-hero-grid">
-            <article class="spotlight-card spotlight-card-main">
-              <div class="spotlight-copy">
-                <p class="eyebrow">Painel Individual</p>
-                <h3 id="hero-title">Acompanhe sua evolução diária</h3>
-                <p id="hero-description">
-                  Consulte sua produção, efetividade e qualidade em um portal separado, com a mesma identidade da Central.
-                </p>
-              </div>
-              <div id="hero-stats" class="spotlight-stats"></div>
-            </article>
+          <label class="search-box" for="global-search">
+            <span class="search-icon" aria-hidden="true"></span>
+            <input
+              id="global-search"
+              type="search"
+              placeholder="Busque por titulo, palavra-chave, conteudo ou tag..."
+              autocomplete="off"
+            >
+          </label>
+          <section id="global-filter-panel" class="filter-panel filter-panel-inline">
+            <div class="filter-head">
+              <button id="clear-filters" class="text-button" type="button">Limpar</button>
+            </div>
 
-            <article class="spotlight-card spotlight-card-side">
-              <p class="eyebrow">Última atualização</p>
-              <h3 id="latest-update-title">Aguardando lançamentos</h3>
-              <p id="latest-update-copy">Quando o gestor lançar seus números, eles aparecem aqui automaticamente.</p>
-            </article>
-          </div>
+            <div class="filter-group">
+              <span class="filter-label">Categoria</span>
+              <div id="category-filters" class="chip-grid"></div>
+            </div>
+
+            <div class="filter-group">
+              <span class="filter-label">Tipo</span>
+              <div id="type-filters" class="chip-grid"></div>
+            </div>
+
+            <div class="filter-group">
+              <span class="filter-label">Tags</span>
+              <div id="tag-filters" class="chip-grid"></div>
+            </div>
+          </section>
         </div>
       </header>
 
+      <section id="history-panel" class="history-panel hidden"></section>
+
       <section id="dashboard" class="content-section active">
-        <div class="info-grid single">
-          <section class="panel">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Resumo rápido</p>
-                <h3>Seus principais indicadores</h3>
-              </div>
+        <div class="dashboard-grid">
+          <article class="spotlight-card spotlight-card-main">
+            <div class="spotlight-copy">
+              <p class="eyebrow">Busca Central</p>
+              <h3>Ponto unico de consulta para operadores</h3>
+              <p>
+                Digite durante o atendimento e veja resultados filtrados instantaneamente com titulo, categoria,
+                tags, palavras-chave e trechos destacados.
+              </p>
             </div>
-            <div id="dashboard-metrics" class="metric-grid"></div>
-          </section>
+            <div class="spotlight-stats" id="hero-stats"></div>
+          </article>
+
+          <article class="spotlight-card spotlight-card-side">
+            <p class="eyebrow">Atualizacao operacional</p>
+            <h3>Itens criticos sempre em evidÃªncia</h3>
+            <p>Alertas, mudancas de politica e comunicados recentes ganham destaque visual para consulta rapida.</p>
+          </article>
         </div>
 
-        <div class="info-grid">
-          <section class="panel">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Evolucao visual</p>
-                <h3>Tendencia dos ultimos lancamentos</h3>
-              </div>
+        <section class="category-section">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Categorias</p>
+              <h3>Navegacao por assunto</h3>
             </div>
-            <div id="dashboard-trend-chart" class="chart-stack"></div>
-          </section>
-
-          <section class="panel">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Comparativo</p>
-                <h3>Painel ilustrado de performance</h3>
-              </div>
-            </div>
-            <div id="dashboard-illustrated-cards" class="visual-cards"></div>
-          </section>
-        </div>
-
-        <div class="info-grid single">
-          <section class="panel">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Leitura do dia</p>
-                <h3>Como está sua última referência</h3>
-              </div>
-            </div>
-            <div id="latest-result-card" class="admin-list"></div>
-          </section>
-        </div>
-      </section>
-
-      <section id="my-results" class="content-section">
-        <div class="info-grid single">
-          <section class="panel">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Meu resultado</p>
-                <h3>Detalhamento do último lançamento</h3>
-              </div>
-            </div>
-            <div id="result-metrics" class="metric-grid"></div>
-            <div id="result-summary" class="admin-list result-summary-stack"></div>
-          </section>
-        </div>
-
-        <div class="info-grid">
-          <section class="panel">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Grafico pessoal</p>
-                <h3>Curva de desempenho diario</h3>
-              </div>
-            </div>
-            <div id="my-results-chart" class="chart-stack"></div>
-          </section>
-
-          <section class="panel">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Indicadores visuais</p>
-                <h3>Vista ilustrada dos percentuais</h3>
-              </div>
-            </div>
-            <div id="my-results-illustrated" class="visual-cards"></div>
-          </section>
-        </div>
-      </section>
-
-      <section id="dashboard-analytics" class="content-section">
-        <div class="analytics-layout">
-          <aside class="panel analytics-filters">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Filtros</p>
-                <h3>Painel inteligente</h3>
-              </div>
-            </div>
-
-            <section class="analytics-filter-group">
-              <h4>Atendente</h4>
-              <input id="analytics-attendant-search" class="analytics-search" type="search" placeholder="Pesquisar atendente...">
-              <div id="analytics-attendant-list" class="analytics-scroll-list"></div>
-            </section>
-
-            <section class="analytics-filter-group">
-              <h4>Data</h4>
-              <div id="analytics-date-list" class="analytics-scroll-list"></div>
-            </section>
-
-            <button id="analytics-clear-filters" class="ghost-button" type="button">Limpar segmentacoes</button>
-          </aside>
-
-          <div class="analytics-main">
-            <section class="panel">
-              <div id="analytics-kpi-row" class="analytics-kpi-row"></div>
-            </section>
-
-            <section class="panel">
-              <div id="analytics-gauges" class="analytics-gauges"></div>
-            </section>
-
-            <div class="analytics-lower-grid analytics-new-views-grid">
-              <section class="panel">
-                <div class="section-head">
-                  <div>
-                    <p class="eyebrow">Consistencia</p>
-                    <h3>Variacao de efetividade, producao e qualidade</h3>
-                  </div>
-                </div>
-                <div id="analytics-consistency" class="analytics-consistency"></div>
-              </section>
-
-              <section class="panel">
-                <div class="section-head">
-                  <div>
-                    <p class="eyebrow">Faixas</p>
-                    <h3>Distribuicao de desempenho</h3>
-                  </div>
-                </div>
-                <div id="analytics-performance-bands" class="analytics-performance-bands"></div>
-              </section>
-            </div>
-
-            <section class="panel">
-              <div class="section-head">
-                <div>
-                  <p class="eyebrow">Série temporal</p>
-                  <h3>Propostas por dia</h3>
-                </div>
-              </div>
-              <div id="analytics-daily-bars" class="analytics-bars"></div>
-            </section>
-
-            <div class="analytics-lower-grid">
-              <section class="panel">
-                <div class="section-head">
-                  <div>
-                    <p class="eyebrow">Comparativo</p>
-                    <h3>Produção, efetividade e qualidade</h3>
-                  </div>
-                </div>
-                <div id="analytics-tags-bars" class="analytics-tags"></div>
-              </section>
-
-              <section class="panel">
-                <div class="section-head">
-                  <div>
-                    <p class="eyebrow">Tendência</p>
-                    <h3>Evolução de efetividade e qualidade</h3>
-                  </div>
-                </div>
-                <div id="analytics-departments" class="analytics-departments"></div>
-                <div id="analytics-workdays" class="analytics-workdays"></div>
-              </section>
-            </div>
-
-            <section class="panel">
-              <div class="section-head">
-                <div>
-                  <p class="eyebrow">Ranking</p>
-                  <h3>Top dias por score combinado</h3>
-                </div>
-              </div>
-              <div id="analytics-top-days" class="analytics-top-days"></div>
-            </section>
           </div>
-        </div>
-      </section>
+          <div id="category-cards" class="category-grid"></div>
+        </section>
 
-      <section id="history" class="content-section">
-        <div class="info-grid single">
+        <div class="info-grid">
           <section class="panel">
             <div class="section-head">
               <div>
-                <p class="eyebrow">Histórico diário</p>
-                <h3>Lançamentos anteriores</h3>
+                <p class="eyebrow">Mais acessados</p>
+                <h3>Top consultas da operacao</h3>
               </div>
-              <button id="history-delete-all" class="ghost-button danger hidden" type="button">Apagar todos</button>
             </div>
-            <div id="history-table-wrapper" class="table-shell"></div>
+            <div id="most-accessed" class="list-stack"></div>
+          </section>
+
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Atualizacoes recentes</p>
+                <h3>Novidades da base</h3>
+              </div>
+            </div>
+            <div id="recent-updates" class="list-stack"></div>
           </section>
         </div>
       </section>
 
-      <section id="admin" class="content-section">
-        <div class="admin-grid portal-admin-grid">
+      <section id="explorer" class="content-section">
+        <section class="panel results-panel">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Resultados</p>
+              <h3>Busca e filtros em tempo real</h3>
+            </div>
+          </div>
+          <div id="active-filters" class="active-filters"></div>
+          <div id="results-list" class="results-list"></div>
+        </section>
+      </section>
+
+      <section id="favorites" class="content-section">
+        <div class="info-grid single">
           <section class="panel">
             <div class="section-head">
               <div>
-                <p class="eyebrow">Lançamento manual</p>
-                <h3>Cadastrar resultado do operador</h3>
+                <p class="eyebrow">Favoritos</p>
+                <h3>Conteudos salvos para atendimento rapido</h3>
+              </div>
+            </div>
+            <div id="favorites-list" class="results-list compact"></div>
+          </section>
+        </div>
+      </section>
+
+        <section id="admin" class="content-section">
+          <div class="admin-grid">
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Gestao de conteudo</p>
+                <h3>Avisos e procedimentos</h3>
+              </div>
+            </div>
+            <div class="admin-action-card">
+              <p>
+                Cadastre novos avisos, scripts e procedimentos em uma tela dedicada.
+                A visualizacao e a edicao tambem acontecem em uma tela propria para deixar o fluxo mais organizado.
+              </p>
+              <div class="form-actions">
+                <button id="open-content-create" class="primary-button" type="button">Novo aviso / procedimento</button>
+              </div>
+              <div id="content-create-menu" class="create-menu hidden">
+                <button type="button" class="create-menu-option" data-create-kind="aviso">Aviso</button>
+                <button type="button" class="create-menu-option" data-create-kind="documento">Documento Word / PDF</button>
+                <button type="button" class="create-menu-option" data-create-kind="procedimento">Procedimento</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Base cadastrada</p>
+                <h3>Itens disponiveis</h3>
+              </div>
+            </div>
+            <div id="admin-list" class="admin-list"></div>
+          </section>
+        </div>
+
+        <div class="admin-grid">
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Niveis de servico</p>
+                <h3>Criar acesso</h3>
               </div>
             </div>
 
-            <form id="admin-form" class="admin-form">
+            <form id="user-form" class="admin-form">
+              <input id="user-id" type="hidden">
+
               <label>
-                <span>Operador</span>
-                <select id="admin-user" required></select>
+                <span>Nome completo</span>
+                <input id="user-name" type="text" required placeholder="Ex.: Maria Silva">
               </label>
 
               <div class="form-grid">
                 <label>
-                  <span>Data</span>
-                  <input id="admin-date" type="date" required>
+                  <span>Login</span>
+                  <input id="user-username" type="text" required placeholder="Ex.: maria.silva">
                 </label>
 
                 <label>
-                  <span>Operacao</span>
-                  <select id="admin-operation" required>
-                    <option value="nuvidio">Nuvidio</option>
-                    <option value="0800">0800</option>
+                  <span>Nivel de acesso</span>
+                  <select id="user-role" required>
+                    <option value="gestor">Gestor - acesso total</option>
+                    <option value="operador">Operador - visualizar base</option>
                   </select>
                 </label>
               </div>
 
               <div class="form-grid">
                 <label>
-                  <span>Aprovadas</span>
-                  <input id="admin-approved" type="number" min="0" step="1" required placeholder="Ex.: 52">
+                  <span>Usuario 0800</span>
+                  <input id="user-username-0800" type="text" placeholder="Ex.: login.0800">
                 </label>
 
                 <label>
-                  <span>Reprovadas</span>
-                  <input id="admin-reproved" type="number" min="0" step="1" required placeholder="Ex.: 10">
+                  <span>Usuario Nuvidio</span>
+                  <input id="user-username-nuvidio" type="text" placeholder="Ex.: login.nuvidio@empresa.com.br">
                 </label>
               </div>
 
-              <div class="form-grid">
-                <label id="admin-pending-wrap">
-                  <span>Pendenciadas (0800)</span>
-                  <input id="admin-pending" type="number" min="0" step="1" placeholder="Ex.: 8">
-                </label>
-
                 <label>
-                  <span>Sem acao</span>
-                  <input id="admin-no-action" type="number" min="0" step="1" required placeholder="Ex.: 15">
+                  <span>Senha</span>
+                  <input id="user-password" type="text" readonly value="Trocar@01">
+                  <small class="field-help">A senha padrao sera gerada como Trocar@01 e o usuario devera alterar no primeiro acesso.</small>
                 </label>
-              </div>
-
-              <div class="form-grid">
-                <label>
-                  <span>Total atendido (calculado)</span>
-                  <input id="admin-production" type="number" min="0" step="0.01" readonly>
-                </label>
-
-                <label>
-                  <span>Efetividade (%) calculada</span>
-                  <input id="admin-effectiveness" type="number" min="0" step="0.01" readonly>
-                </label>
-              </div>
-
-              <div class="form-grid">
-                <label>
-                  <span>Qualidade (%)</span>
-                  <input id="admin-quality" type="number" min="0" step="0.01" required placeholder="Ex.: 93">
-                </label>
-              </div>
 
               <div class="form-actions">
-                <button class="primary-button" type="submit">Salvar resultado</button>
+                <button class="primary-button" type="submit">Salvar acesso</button>
+                <button id="cancel-user-edit" class="ghost-button" type="button">Cancelar edicao</button>
               </div>
             </form>
           </section>
@@ -477,85 +381,332 @@
           <section class="panel">
             <div class="section-head">
               <div>
-                <p class="eyebrow">Importacao em massa</p>
-                <h3>Planilha por data</h3>
+                <p class="eyebrow">Usuarios cadastrados</p>
+                <h3>Acessos liberados pelo gestor</h3>
               </div>
             </div>
-
-            <form id="admin-upload-form" class="admin-form">
-              <label>
-                <span>Operacao da planilha</span>
-                <select id="upload-operation">
-                  <option value="nuvidio">Nuvidio</option>
-                  <option value="0800">0800</option>
-                </select>
-              </label>
-              <fieldset class="upload-mode-fieldset">
-                <legend>Modelo de importacao</legend>
-                <div id="upload-mode-options" class="upload-mode-options">
-                  <label class="upload-mode-option">
-                    <input type="checkbox" name="upload-mode" value="production" checked>
-                    <span>Producao</span>
-                  </label>
-                  <label class="upload-mode-option">
-                    <input type="checkbox" name="upload-mode" value="effectiveness" checked>
-                    <span>Efetividade (calculada)</span>
-                  </label>
-                  <label class="upload-mode-option">
-                    <input type="checkbox" name="upload-mode" value="quality" checked>
-                    <span>Qualidade</span>
-                  </label>
-                </div>
-              </fieldset>
-              <label>
-                <span>Planilha</span>
-                <input id="upload-file" type="file" accept=".xlsx,.xls,.csv">
-              </label>
-
-              <p id="upload-help-text" class="field-help">Colunas aceitas: Nome do Operador (ou Usuario), Data, Efetividade, Producao e Qualidade. A data e lida da propria planilha, linha a linha.</p>
-              <p id="upload-status" class="upload-status hidden" role="status" aria-live="polite"></p>
-
-              <div class="form-actions">
-                <button id="import-upload" class="primary-button" type="button">Importar planilha</button>
-                <button id="download-template" class="ghost-button" type="button">Baixar modelo</button>
-                <button id="remove-upload" class="ghost-button danger" type="button">Remover carga por planilha</button>
-              </div>
-            </form>
-          </section>
-
-          <section id="system-maintenance-panel" class="panel hidden">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Configuracoes</p>
-                <h3>Manutencao do sistema</h3>
-              </div>
-            </div>
-            <div class="maintenance-control">
-              <p id="maintenance-status-text" class="field-help">Manutencao desativada.</p>
-              <button id="maintenance-toggle-button" class="ghost-button danger" type="button">Ativar manutencao</button>
-            </div>
+            <label class="search-box user-search-box" for="users-search">
+              <span class="search-icon" aria-hidden="true"></span>
+              <input
+                id="users-search"
+                type="search"
+                placeholder="Pesquisar por nome ou login..."
+                autocomplete="off"
+              >
+            </label>
+            <div id="users-list" class="admin-list"></div>
           </section>
         </div>
 
+      </section>
+
+      <section id="operacional" class="content-section">
+          <div class="admin-grid">
+            <section class="panel">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Operação</p>
+                  <h3>Painel Operacional</h3>
+                </div>
+              </div>
+
+                <div class="operational-toolbar">
+                  <label class="search-box operational-search" for="operational-search">
+                    <span class="search-icon" aria-hidden="true"></span>
+                    <input
+                      id="operational-search"
+                      type="search"
+                      placeholder="Pesquisar usuário..."
+                      autocomplete="off"
+                    >
+                  </label>
+                  <div class="presence-summary">
+                    <button id="operational-filter-online" class="presence-pill online" type="button">Online</button>
+                    <button id="operational-filter-offline" class="presence-pill offline" type="button">Offline</button>
+                  </div>
+                </div>
+
+              <div id="operational-list" class="admin-list"></div>
+            </section>
+          </div>
+      </section>
+
+      <section id="content-editor-screen" class="content-section">
         <div class="info-grid single">
-          <section class="panel">
+          <section class="panel editor-screen-panel">
             <div class="section-head">
               <div>
-                <p class="eyebrow">Conferência</p>
-                <h3>Histórico do operador selecionado</h3>
+                <p class="eyebrow">Gestao de conteudo</p>
+                <h3 id="content-editor-title">Novo conteudo</h3>
               </div>
+              <button id="back-from-content-editor" class="ghost-button" type="button">Voltar</button>
             </div>
-            <div id="admin-history-wrapper" class="table-shell"></div>
+
+            <form id="content-form" class="admin-form">
+              <input id="content-id" type="hidden">
+
+              <label>
+                <span>Titulo</span>
+                <input id="content-title" type="text" required placeholder="Ex.: Script de contestacao de cartao">
+              </label>
+
+              <div class="form-grid">
+                <label>
+                  <span>Categoria</span>
+                  <select id="content-category" required></select>
+                </label>
+
+                <label>
+                  <span>Tipo</span>
+                  <select id="content-type" required></select>
+                </label>
+              </div>
+
+              <label>
+                <span>Resumo curto</span>
+                <input id="content-summary" type="text" required placeholder="Resumo que aparece nas listagens">
+              </label>
+
+              <label>
+                <span>Tags</span>
+                <input id="content-tags" type="text" placeholder="BMG, Cartao, Emprestimo">
+              </label>
+
+              <label>
+                <span>Palavras-chave</span>
+                <input id="content-keywords" type="text" placeholder="senha, desbloqueio, confirmacao de dados">
+              </label>
+
+              <label>
+                <span>Conteudo formatado</span>
+                <textarea id="content-body" rows="10" placeholder="Use paragrafos separados por linha em branco. Para listas, comece com -"></textarea>
+                <small class="field-help">Se preferir, você pode deixar esse campo em branco e subir apenas o documento anexado.</small>
+              </label>
+
+              <label>
+                <span>Documento anexado</span>
+                <input id="content-attachment" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                <small class="field-help">Aceita PDF, Word e Excel. Você pode selecionar mais de um arquivo e tudo será salvo junto do post.</small>
+                <small id="content-attachment-info" class="field-help">Nenhum arquivo selecionado.</small>
+              </label>
+
+              <div class="form-grid check-grid">
+                <label class="checkbox-row">
+                  <input id="content-featured" type="checkbox">
+                  <span>Marcar como destaque</span>
+                </label>
+
+                <label class="checkbox-row">
+                  <input id="content-script" type="checkbox">
+                  <span>Exibir botao de copiar</span>
+                </label>
+              </div>
+
+              <label class="checkbox-row">
+                <input id="content-urgent" type="checkbox">
+                <span>Urgente</span>
+              </label>
+
+              <div class="form-actions">
+                <button class="primary-button" type="submit">Salvar conteudo</button>
+                <button id="cancel-edit" class="ghost-button" type="button">Cancelar</button>
+              </div>
+            </form>
           </section>
         </div>
       </section>
+
     </main>
   </div>
 
-  <script src="script.js?v=20260427-portal-09"></script>
+  <div id="content-view-screen" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <article class="modal-card content-view-modal-card">
+      <header class="modal-head">
+        <div>
+          <p class="eyebrow">Visualizacao</p>
+          <h3 id="content-view-title">Conteudo</h3>
+        </div>
+        <div class="form-actions">
+          <button id="back-from-content-view" class="ghost-button" type="button">Voltar</button>
+          <button id="content-view-edit" class="primary-button" type="button">Editar</button>
+        </div>
+      </header>
+      <div id="content-view-body" class="content-view-body"></div>
+    </article>
+  </div>
+
+  <template id="result-template">
+    <article class="result-card">
+      <div class="result-top">
+        <div>
+          <div class="result-badges"></div>
+          <h4></h4>
+        </div>
+        <div class="result-actions">
+          <button class="ghost-button audit-toggle hidden" type="button" aria-label="Ver audiência">👁</button>
+          <button class="favorite-toggle" type="button" aria-label="Favoritar"></button>
+        </div>
+      </div>
+      <p class="result-summary-text"></p>
+      <p class="result-snippet"></p>
+      <div class="result-bottom">
+        <div class="tag-row"></div>
+        <button class="text-button open-detail" type="button">Abrir conteudo</button>
+      </div>
+    </article>
+  </template>
+
+  <div id="urgent-modal" class="urgent-modal hidden" role="alertdialog" aria-modal="true">
+    <div class="urgent-modal-card">
+      <p class="eyebrow">Alerta urgente</p>
+      <h3 id="urgent-modal-title">Novo comunicado urgente</h3>
+      <p id="urgent-modal-text">Um novo comunicado urgente foi publicado.</p>
+      <div class="form-actions">
+        <button id="urgent-modal-open" class="primary-button" type="button">Marcar como visto</button>
+        <button id="urgent-modal-close" class="ghost-button" type="button">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="content-audit-modal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <article class="modal-card admin-modal-card">
+      <header class="modal-head">
+        <div>
+          <p class="eyebrow">Audiência da publicação</p>
+          <h3 id="content-audit-title">Quem visualizou</h3>
+        </div>
+        <button id="content-audit-close" class="ghost-button modal-close-btn" type="button" aria-label="Fechar">X</button>
+      </header>
+      <div class="audit-stats">
+        <button id="content-audit-seen-count" class="presence-pill online audit-tab-button" type="button">0 visualizaram</button>
+        <button id="content-audit-missing-count" class="presence-pill offline audit-tab-button" type="button">0 não visualizaram</button>
+      </div>
+      <div class="audit-tabs">
+        <button id="content-audit-tab-seen" class="audit-tab active" type="button">Visualizados</button>
+        <button id="content-audit-tab-missing" class="audit-tab" type="button">Não visualizados</button>
+      </div>
+      <div class="audit-panel">
+        <section class="audit-column">
+          <p id="content-audit-active-label" class="eyebrow">Já visualizaram</p>
+          <div id="content-audit-active-list" class="audit-list"></div>
+        </section>
+      </div>
+    </article>
+  </div>
+
+  <div id="operational-user-modal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <article class="modal-card admin-modal-card">
+      <header class="modal-head">
+        <div>
+          <p class="eyebrow">Painel Operacional</p>
+          <h3 id="operational-user-name">Usuário</h3>
+        </div>
+        <button id="operational-user-close" class="ghost-button modal-close-btn" type="button" aria-label="Fechar">X</button>
+      </header>
+      <div class="operational-detail">
+        <div class="presence-summary">
+          <span id="operational-user-status" class="presence-pill online">Online</span>
+          <span id="operational-user-time" class="presence-pill offline">0m</span>
+        </div>
+        <div class="audit-columns single">
+          <section class="audit-column">
+            <p class="eyebrow">Último login</p>
+            <div id="operational-user-last-login" class="audit-card"></div>
+          </section>
+        </div>
+        <div class="form-actions">
+          <button id="operational-user-force-logout" class="ghost-button danger" type="button">Deslogar usuário</button>
+        </div>
+      </div>
+    </article>
+  </div>
+
+  <div id="password-modal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <article class="modal-card admin-modal-card">
+      <header class="modal-head">
+        <div>
+          <p class="eyebrow">Senha</p>
+          <h3 id="password-modal-title">Alterar senha</h3>
+        </div>
+        <button id="password-modal-close" class="ghost-button danger" type="button" aria-label="Fechar">X</button>
+      </header>
+      <form id="password-modal-form" class="admin-form">
+        <label>
+          <span>Nova senha</span>
+          <input id="password-modal-new" type="password" minlength="6" required placeholder="Digite a nova senha">
+        </label>
+        <label>
+          <span>Confirmar nova senha</span>
+          <input id="password-modal-confirm" type="password" minlength="6" required placeholder="Confirme a nova senha">
+        </label>
+        <p id="password-modal-error" class="small muted"></p>
+        <div class="form-actions">
+          <button id="password-modal-cancel" class="ghost-button" type="button">Cancelar</button>
+          <button class="primary-button" type="submit">Salvar senha</button>
+        </div>
+      </form>
+    </article>
+  </div>
+
+  <div id="edit-user-modal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <article class="modal-card admin-modal-card user-edit-modal-card">
+      <header class="modal-head">
+        <div>
+          <p class="eyebrow">Usuarios cadastrados</p>
+          <h3>Editar acesso</h3>
+        </div>
+        <button id="edit-user-modal-close" class="ghost-button modal-close-btn" type="button" aria-label="Fechar">X</button>
+      </header>
+      <form id="edit-user-modal-form" class="admin-form">
+        <input id="edit-user-id" type="hidden">
+
+        <label>
+          <span>Nome completo</span>
+          <input id="edit-user-name" type="text" required placeholder="Ex.: Maria Silva">
+        </label>
+
+        <div class="form-grid">
+          <label>
+            <span>Login</span>
+            <input id="edit-user-username" type="text" required placeholder="Ex.: maria.silva">
+          </label>
+
+          <label>
+            <span>Nivel de acesso</span>
+            <select id="edit-user-role" required>
+              <option value="gestor">Gestor - acesso total</option>
+              <option value="operador">Operador - visualizar base</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="form-grid">
+          <label>
+            <span>Usuario 0800</span>
+            <input id="edit-user-username-0800" type="text" placeholder="Ex.: login.0800">
+          </label>
+
+          <label>
+            <span>Usuario Nuvidio</span>
+            <input id="edit-user-username-nuvidio" type="text" placeholder="Ex.: login.nuvidio@empresa.com.br">
+          </label>
+        </div>
+
+        <label>
+          <span>Senha</span>
+          <input id="edit-user-password" type="text" readonly>
+          <small class="field-help">A senha padrao sera gerada como Trocar@01 e o usuario devera alterar no primeiro acesso.</small>
+        </label>
+
+        <div class="form-actions">
+          <button id="edit-user-modal-cancel" class="ghost-button" type="button">Cancelar</button>
+          <button class="primary-button" type="submit">Salvar alteracoes</button>
+        </div>
+      </form>
+    </article>
+  </div>
+
+  <script src="script.js?v=20260424-01"></script>
 </body>
 </html>
-
-
-
 
